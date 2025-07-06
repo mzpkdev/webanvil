@@ -1,0 +1,55 @@
+{
+  "name": "webanvil",
+  "description": "A zero configuration static site generator that just works.",
+  "version": "0.0.0",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "bin": {
+    "webanvil": "bin/run"
+  },
+  "scripts": {
+    "build": "npm run clean && tsc --build",
+    "build:library": "echo 0",
+    "build:website": "cp -r website website-dist",
+    "clean": "tsc --build --clean",
+    "preprepare": "ts-patch install",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "browser-sync": "^3.0.3",
+    "gray-matter": "^4.0.3",
+    "rollup": "^4.34.6"
+  },
+  "devDependencies": {
+    "@open-wc/rollup-plugin-html": "^1.2.5",
+    "@types/browser-sync": "^2.29.0",
+    "@types/node": "^22.4.0",
+    "ejs": "^3.1.10",
+    "ts-patch": "^3.2.1",
+    "tslib": "^2.6.3",
+    "typescript": "^5.5.4",
+    "typescript-transform-paths": "^3.4.11"
+  },
+  "author": "Mateusz Pietrzak",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mzpkdev/webanvil.git"
+  },
+  "files": [
+    "bin/",
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
+    "lib/**/*.d.ts.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "webanvil",
+    "cli",
+    "html",
+    "ssg",
+    "static-site-generator",
+    "zero-config"
+  ]
+}
