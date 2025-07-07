@@ -1,7 +1,7 @@
 {
   "name": "webanvil",
   "description": "A zero configuration static site generator that just works.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "bin": {
@@ -11,7 +11,7 @@
     "serve:website": "npx webanvil serve",
     "build": "npm run build:library && npm run build:website",
     "build:library": "npm run clean && tsc --build",
-    "build:website": "npx webanvil@0.0.2",
+    "build:website": "npm run build:library && npx webanvil",
     "clean": "tsc --build --clean",
     "preprepare": "ts-patch install",
     "prepack": "npm run build"
@@ -20,6 +20,7 @@
     "browser-sync": "^3.0.3",
     "gray-matter": "^4.0.3",
     "minimist": "^1.2.8",
+    "outlinecss": "^0.0.3",
     "rollup": "^4.34.6"
   },
   "devDependencies": {
