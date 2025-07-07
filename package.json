@@ -1,7 +1,7 @@
 {
   "name": "webanvil",
   "description": "A zero configuration static site generator that just works.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "bin": {
@@ -11,7 +11,7 @@
     "serve:website": "npx webanvil serve",
     "build": "npm run build:library && npm run build:website",
     "build:library": "npm run clean && tsc --build",
-    "build:website": "npx webanvil",
+    "build:website": "npx webanvil@0.0.2",
     "clean": "tsc --build --clean",
     "preprepare": "ts-patch install",
     "prepack": "npm run build"
@@ -20,9 +20,7 @@
     "browser-sync": "^3.0.3",
     "gray-matter": "^4.0.3",
     "minimist": "^1.2.8",
-    "outlinecss": "^0.0.3",
-    "rollup": "^4.34.6",
-    "webanvil": "^0.0.1"
+    "rollup": "^4.34.6"
   },
   "devDependencies": {
     "@open-wc/rollup-plugin-html": "^1.2.5",
@@ -33,7 +31,8 @@
     "ts-patch": "^3.2.1",
     "tslib": "^2.6.3",
     "typescript": "^5.5.4",
-    "typescript-transform-paths": "^3.4.11"
+    "typescript-transform-paths": "^3.4.11",
+    "webanvil": "^0.0.1"
   },
   "author": "Mateusz Pietrzak",
   "license": "MIT",

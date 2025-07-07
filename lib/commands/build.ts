@@ -12,10 +12,11 @@ export default async function build(configuration: Configuration): Promise<numbe
         .map(pathname => Page.from(pathname))
     const renderer = Renderer.from(configuration)
     const emitter = new EventEmitter()
-    const signals = []
-    for (const plugin of configuration.plugins) {
-        signals.push(plugin.install(emitter, configuration))
-    }
+    // Todo: Disable `outlinecss` plugin
+    // const signals = []
+    // for (const plugin of configuration.plugins) {
+    //     signals.push(plugin.install(emitter, configuration))
+    // }
     fs.rm(configuration.directories.output)
     for (const page of pages) {
         const html = renderer.render(page)
@@ -33,6 +34,6 @@ export default async function build(configuration: Configuration): Promise<numbe
         )
     }
     emitter.emit(Event.END)
-    await Promise.all(signals)
+    // await Promise.all(signals)
     return 0
 }
