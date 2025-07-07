@@ -27,7 +27,12 @@ export default async function serve(configuration: Configuration): Promise<numbe
     browser.watch(path.join(configuration.directories.styles, `**/*`).full)
         .on("change", run(rebuild, reload))
     browser.init({
-        server: configuration.directories.output.full,
+        server: {
+            baseDir: configuration.directories.output.full,
+            routes: {
+                [configuration.base]: configuration.directories.output.full
+            }
+        },
         open: false
     })
     return new Promise(() => void 0)

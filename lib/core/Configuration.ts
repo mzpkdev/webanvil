@@ -30,14 +30,17 @@ type Configuration = {
     renderer: RendererConfiguration
     directories: DirectoriesConfiguration
     plugins: Plugin[]
+    base: string
 }
 
 export type PlainConfiguration = {
+    base: string
     renderer: Record<keyof RendererConfiguration, string>
     directories: Record<keyof DirectoriesConfiguration, string>
 }
 
 const defaults: PlainConfiguration = {
+    base: "/",
     renderer: {
         engine: "ejs",
         extension: ".html"

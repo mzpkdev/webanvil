@@ -1,14 +1,14 @@
 {
   "name": "webanvil",
   "description": "A zero configuration static site generator that just works.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "bin": {
     "webanvil": "bin/run"
   },
   "scripts": {
-    "serve:website": "npx webanvil serve",
+    "serve:website": "npx webanvil serve --base /webanvil/",
     "build": "npm run build:library && npm run build:website",
     "build:library": "npm run clean && tsc --build",
     "build:website": "npx webanvil",

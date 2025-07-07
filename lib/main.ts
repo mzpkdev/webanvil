@@ -9,8 +9,8 @@ const DEFAULT_ENTRY = "./website"
 
 export async function main(...varargs: string[]): Promise<number> {
     const options = minimist(varargs, {
-        alias: { o: "output", e: "entry" },
-        default: { output: DEFAULT_OUTPUT, entry: DEFAULT_ENTRY }
+        alias: { o: "output", e: "entry", b: "base" },
+        default: { output: DEFAULT_OUTPUT, entry: DEFAULT_ENTRY, base: "/" }
     })
     const [ command ] = varargs
     const directories = {
@@ -22,7 +22,7 @@ export async function main(...varargs: string[]): Promise<number> {
         partials: `${options.entry}/templates/partials`,
         layouts: `${options.entry}/templates/layouts`
     }
-    const configuration = Configuration.from({ directories })
+    const configuration = Configuration.from({ directories, base: options.base })
     switch (command) {
         default:
         case "build":
