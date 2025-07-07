@@ -11,7 +11,7 @@
     "serve:website": "npx webanvil serve",
     "build": "npm run build:library && npm run build:website",
     "build:library": "npm run clean && tsc --build",
-    "build:website": "npm run build:library && npx webanvil",
+    "build:website": "npx webanvil",
     "clean": "tsc --build --clean",
     "preprepare": "ts-patch install",
     "prepack": "npm run build"
