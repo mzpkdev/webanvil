@@ -33,6 +33,7 @@ export default async function serve(configuration: Configuration): Promise<numbe
                 [configuration.base]: configuration.directories.output.full
             }
         },
+        startPath: configuration.base,
         open: false
     })
     return new Promise(() => void 0)

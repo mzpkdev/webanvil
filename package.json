@@ -1,7 +1,7 @@
 {
   "name": "webanvil",
   "description": "A zero configuration static site generator that just works.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "bin": {
@@ -20,7 +20,6 @@
     "browser-sync": "^3.0.3",
     "gray-matter": "^4.0.3",
     "minimist": "^1.2.8",
-    "outlinecss": "^0.0.3",
     "rollup": "^4.34.6"
   },
   "devDependencies": {
@@ -33,7 +32,8 @@
     "tslib": "^2.6.3",
     "typescript": "^5.5.4",
     "typescript-transform-paths": "^3.4.11",
-    "webanvil": "^0.0.1"
+    "webanvil": ".",
+    "outlinecss": "^0.0.5"
   },
   "author": "Mateusz Pietrzak",
   "license": "MIT",
