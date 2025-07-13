@@ -1,5 +1,4 @@
 import { fs, path } from "@/commons/io/sync"
-import * as nodepath from "path"
 import Configuration from "@/core/Configuration"
 import Renderer from "@/core/Renderer"
 import Page from "@/core/Page"
@@ -24,8 +23,7 @@ export default async function build(configuration: Configuration): Promise<numbe
         if (output.base === "index.html") {
             fs.write(path.join(configuration.directories.output, output), html)
         } else {
-            const basename = nodepath.basename(String(output), ".html")
-            fs.write(path.join(configuration.directories.output, basename, "index.html"), html)
+            fs.write(path.join(configuration.directories.output, output.dir, output.name, "index.html"), html)
         }
         fs.cp(
             configuration.directories.public,
