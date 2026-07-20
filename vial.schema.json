@@ -1,0 +1,195 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+        "$schema": {
+            "type": "string"
+        },
+        "target": {
+            "type": "string",
+            "enum": [
+                "browser",
+                "node",
+                "bun"
+            ]
+        },
+        "build": {
+            "type": "object",
+            "properties": {
+                "outDir": {
+                    "type": "string"
+                },
+                "declaration": {
+                    "type": "boolean"
+                },
+                "clean": {
+                    "type": "boolean"
+                },
+                "sourcemap": {
+                    "type": "boolean"
+                },
+                "minify": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false
+        },
+        "bundle": {
+            "type": "object",
+            "properties": {
+                "minify": {
+                    "type": "boolean"
+                },
+                "sourcemap": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false
+        },
+        "dev": {
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "number"
+                },
+                "host": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "preview": {
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "number"
+                },
+                "host": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "test": {
+            "type": "object",
+            "properties": {
+                "environment": {
+                    "type": "string"
+                },
+                "globals": {
+                    "type": "boolean"
+                },
+                "coverage": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false
+        },
+        "typecheck": {
+            "type": "object",
+            "properties": {
+                "compilerOptions": {
+                    "type": "object",
+                    "propertyNames": {
+                        "type": "string"
+                    },
+                    "additionalProperties": {}
+                }
+            },
+            "additionalProperties": false
+        },
+        "format": {
+            "type": "object",
+            "properties": {
+                "indentStyle": {
+                    "type": "string",
+                    "enum": [
+                        "space",
+                        "tab"
+                    ]
+                },
+                "indentWidth": {
+                    "type": "number"
+                },
+                "lineWidth": {
+                    "type": "number"
+                },
+                "quoteStyle": {
+                    "type": "string",
+                    "enum": [
+                        "double",
+                        "single"
+                    ]
+                },
+                "semicolons": {
+                    "type": "string",
+                    "enum": [
+                        "always",
+                        "asNeeded"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "lint": {
+            "type": "object",
+            "properties": {
+                "rules": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "const": "recommended"
+                        },
+                        {
+                            "type": "object",
+                            "propertyNames": {
+                                "type": "string"
+                            },
+                            "additionalProperties": {}
+                        }
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "tasks": {
+            "type": "object",
+            "propertyNames": {
+                "type": "string"
+            },
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "dependsOn": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "outputs": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "inputs": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "cache": {
+                        "type": "boolean"
+                    },
+                    "persistent": {
+                        "type": "boolean"
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": false,
+    "title": "vial.config",
+    "description": "Configuration for the vial CLI. Every field is optional."
+}
