@@ -1,0 +1,14 @@
+{
+  "name": "webanvil-spa-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "webanvil build",
+    "check": "webanvil check",
+    "dev": "webanvil dev",
+    "test": "webanvil test"
+  },
+  "devDependencies": {
+    "webanvil": "file:../.."
+  }
+}

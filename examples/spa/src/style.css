@@ -1,0 +1,39 @@
+:root {
+  color: #172033;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f5f7fb;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 42rem;
+  margin: 18vh auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 1rem 3rem rgb(23 32 51 / 12%);
+}
+
+.eyebrow {
+  color: #4b5ff0;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+h1 {
+  margin-block: 0.25rem 1rem;
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+a {
+  color: #4b5ff0;
+}

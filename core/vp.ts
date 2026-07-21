@@ -2,11 +2,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { resolveConfig } from "vite-plus";
-import {
-  run,
-  type CliOptions,
-  type JsCommandResolvedResult,
-} from "vite-plus/binding";
+import { run, type CliOptions, type JsCommandResolvedResult } from "vite-plus/binding";
 
 const environment = {
   JS_RUNTIME_VERSION: process.versions.node,
@@ -14,18 +10,14 @@ const environment = {
   NODE_PACKAGE_MANAGER: "vite-plus",
 };
 
-const requireFromProject = () =>
-  createRequire(join(process.cwd(), "package.json"));
+const requireFromProject = () => createRequire(join(process.cwd(), "package.json"));
 
 const resolvers = {
   async vite(): Promise<JsCommandResolvedResult> {
     const require = requireFromProject();
 
     return {
-      binPath: join(
-        dirname(require.resolve("@voidzero-dev/vite-plus-core")),
-        "cli.js",
-      ),
+      binPath: join(dirname(require.resolve("@voidzero-dev/vite-plus-core")), "cli.js"),
       envs: environment,
     };
   },
@@ -35,10 +27,7 @@ const resolvers = {
     const packageJson = JSON.parse(await readFile(packagePath, "utf8")) as {
       bin: string | { vitest?: string };
     };
-    const bin =
-      typeof packageJson.bin === "string"
-        ? packageJson.bin
-        : packageJson.bin.vitest;
+    const bin = typeof packageJson.bin === "string" ? packageJson.bin : packageJson.bin.vitest;
 
     if (!bin) {
       throw new Error("Could not resolve the Vitest executable.");
@@ -58,11 +47,7 @@ const resolvers = {
     const require = requireFromProject();
 
     return {
-      binPath: join(
-        dirname(dirname(require.resolve("oxlint"))),
-        "bin",
-        "oxlint",
-      ),
+      binPath: join(dirname(dirname(require.resolve("oxlint"))), "bin", "oxlint"),
       envs: {
         ...environment,
         OXLINT_TSGOLINT_PATH: require.resolve("oxlint-tsgolint/bin/tsgolint"),
@@ -74,11 +59,7 @@ const resolvers = {
     const require = requireFromProject();
 
     return {
-      binPath: join(
-        dirname(require.resolve("vite-plus/package.json")),
-        "dist",
-        "pack-bin.js",
-      ),
+      binPath: join(dirname(require.resolve("vite-plus/package.json")), "dist", "pack-bin.js"),
       envs: environment,
     };
   },
@@ -92,30 +73,29 @@ const resolvers = {
   },
 };
 
-const resolveUniversalViteConfig: CliOptions["resolveUniversalViteConfig"] =
-  async (error, cwd) => {
-    if (error) {
-      throw error;
-    }
+const resolveUniversalViteConfig: CliOptions["resolveUniversalViteConfig"] = async (error, cwd) => {
+  if (error) {
+    throw error;
+  }
 
-    const config = await resolveConfig({ root: cwd }, "build");
-    const universalConfig = config as typeof config & {
-      check?: unknown;
-      fmt?: unknown;
-      lint?: unknown;
-      run?: unknown;
-      staged?: unknown;
-    };
-
-    return JSON.stringify({
-      configFile: config.configFile,
-      check: universalConfig.check,
-      fmt: universalConfig.fmt,
-      lint: universalConfig.lint,
-      run: universalConfig.run,
-      staged: universalConfig.staged,
-    });
+  const config = await resolveConfig({ root: cwd }, "build");
+  const universalConfig = config as typeof config & {
+    check?: unknown;
+    fmt?: unknown;
+    lint?: unknown;
+    run?: unknown;
+    staged?: unknown;
   };
+
+  return JSON.stringify({
+    configFile: config.configFile,
+    check: universalConfig.check,
+    fmt: universalConfig.fmt,
+    lint: universalConfig.lint,
+    run: universalConfig.run,
+    staged: universalConfig.staged,
+  });
+};
 
 export const vp = async (command: string, args: string[]) => {
   const exitCode = await run({

@@ -8,10 +8,5 @@
     "target": "ES2022",
     "verbatimModuleSyntax": true
   },
-  "include": [
-    "arguments/**/*.ts",
-    "build.config.ts",
-    "commands/**/*.ts",
-    "core/**/*.ts"
-  ]
+  "include": ["arguments/**/*.ts", "cli.ts", "commands/**/*.ts", "core/**/*.ts", "vite.config.ts"]
 }
