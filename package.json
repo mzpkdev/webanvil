@@ -1,0 +1,41 @@
+{
+  "name": "webanvil",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/commands/index.cjs",
+  "module": "./dist/commands/index.mjs",
+  "types": "./dist/commands/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/commands/index.d.ts",
+      "import": "./dist/commands/index.mjs",
+      "require": "./dist/commands/index.cjs"
+    },
+    "./core/vp": {
+      "types": "./dist/core/vp.d.ts",
+      "import": "./dist/core/vp.mjs",
+      "require": "./dist/core/vp.cjs"
+    }
+  },
+  "scripts": {
+    "build": "unbuild",
+    "test": "vp test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cmdore": "^0.4.1",
+    "vite-plus": "^0.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "typescript": "^5.9.3",
+    "unbuild": "^3.6.1"
+  }
+}
