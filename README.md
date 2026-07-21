@@ -1,8 +1,10 @@
 # Webanvil
 
-Webanvil is the command surface for running a modern Node.js project. One CLI takes a project from a local dev server to a production build, checks it before release, and keeps the toolchain out of your way.
+The conventional toolchain for modern Node.js projects.
 
-It brings Vite, Vitest, unbuild, TypeScript, Biome, and Turborepo under commands that work together. Use it when you want a small, predictable workflow instead of a collection of tool-specific scripts and configuration files.
+Webanvil gives applications, libraries, and workspaces one predictable way to develop, test, check, and build. It turns the tools Node developers already trust—Vite, Vitest, unbuild, TypeScript, Biome, and Turborepo—into a workflow that works out of the box and remains customizable when a project needs it.
+
+Start with sensible defaults. Keep native tool configuration where it already exists. Adopt one command at a time or use the same workflow across an entire organization.
 
 ```sh
 webanvil init
@@ -14,14 +16,20 @@ webanvil format --check
 webanvil build
 ```
 
-## Why Webanvil
+## The value is the convention
 
-- **One workflow for every project.** Start, build, test, lint, format, preview, and clean with the same command shape.
-- **Useful without configuration.** Built-in defaults let a new project run immediately.
-- **A quality gate built in.** Format code and prose, lint for problems, and use `--check` in CI without adding separate scripts.
-- **Control when you need it.** A `webanvil.config` shares project settings, while native Vite, Vitest, unbuild, and Biome configs still take precedence for their own tools.
-- **Works for apps and libraries.** `webanvil build` detects an `index.html` and builds an app with Vite; otherwise it compiles a library with unbuild.
-- **Built for workspaces.** `webanvil run` uses Turborepo to run package tasks in dependency order with caching.
+A typical Node project does not lack capable tools. It lacks a shared way to use them. Every repository chooses its own scripts, configuration layout, defaults, and release checks; developers have to rediscover the workflow whenever they move between projects.
+
+Webanvil makes that workflow a convention:
+
+- **One familiar command surface.** Start, build, test, type-check, lint, format, preview, and clean any project with the same vocabulary.
+- **Useful from the first command.** Sensible defaults let a new project run without first assembling a stack of configuration files.
+- **Easy to adopt in existing projects.** Native Vite, Vitest, unbuild, and Biome configuration continues to work, so adoption does not require a rewrite.
+- **A repeatable quality gate.** The same checks run locally and in CI without every repository inventing its own scripts.
+- **One convention from package to workspace.** Use it for an application or library, then carry the same workflow into a monorepo with dependency ordering and caching.
+- **An escape hatch, not a ceiling.** Use `webanvil.config` for shared policy, command flags for one-off changes, and native configuration for tool-specific control.
+
+Webanvil does not replace its underlying tools with proprietary equivalents. It provides the stable interface between your project and those tools, so teams spend less time maintaining setup and more time working on the project itself.
 
 ## Commands
 
