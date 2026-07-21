@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock("../config", () => ({
-    loadVialConfig: (): Promise<unknown> =>
+    loadWebanvilConfig: (): Promise<unknown> =>
         Promise.resolve({ test: { globals: true, environment: "node", coverage: false } })
 }))
 

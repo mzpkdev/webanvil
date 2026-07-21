@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 
-/** A workspace package: its directory and the parts of its package.json vial reads. */
+/** A workspace package: its directory and the parts of its package.json webanvil reads. */
 export type WorkspacePackage = { dir: string; name: string; scripts: Record<string, string> }
 
 /** The nearest ancestor of `from` (inclusive) whose package.json declares `workspaces`, or

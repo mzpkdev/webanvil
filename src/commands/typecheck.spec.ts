@@ -2,7 +2,7 @@ import { typecheckCommand } from "./typecheck"
 
 const h = vi.hoisted(() => ({
     runCalls: [] as string[][],
-    hasVialConfig: vi.fn((): boolean => false),
+    hasWebanvilConfig: vi.fn((): boolean => false),
     detectConfig: vi.fn((): string | undefined => undefined),
     tempTsconfig: vi.fn((): string => "TEMP"),
     scaffoldTsconfig: vi.fn((): Promise<string> => Promise.resolve("SCAFFOLD")),
@@ -10,8 +10,8 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock("../config", () => ({
-    loadVialConfig: (): Promise<unknown> => Promise.resolve({ typecheck: { compilerOptions: { strict: true } } }),
-    hasVialConfig: h.hasVialConfig
+    loadWebanvilConfig: (): Promise<unknown> => Promise.resolve({ typecheck: { compilerOptions: { strict: true } } }),
+    hasWebanvilConfig: h.hasWebanvilConfig
 }))
 
 vi.mock("../tools", () => ({
@@ -46,7 +46,7 @@ describe("typecheck tsconfig resolution", () => {
     const realIsTTY = process.stdout.isTTY
     beforeEach(() => {
         h.runCalls.length = 0
-        h.hasVialConfig.mockReturnValue(false)
+        h.hasWebanvilConfig.mockReturnValue(false)
         h.detectConfig.mockReturnValue(undefined)
         h.tempTsconfig.mockClear()
         h.scaffoldTsconfig.mockClear()
@@ -56,7 +56,7 @@ describe("typecheck tsconfig resolution", () => {
         process.stdout.isTTY = realIsTTY
     })
 
-    context("without a vial.config", () => {
+    context("without a webanvil.config", () => {
         it("scaffolds a root tsconfig when interactive and none is detected", async () => {
             process.stdout.isTTY = true
             await run()
@@ -91,8 +91,8 @@ describe("typecheck tsconfig resolution", () => {
         })
     })
 
-    context("with a vial.config (vial owns the tsconfig)", () => {
-        beforeEach(() => h.hasVialConfig.mockReturnValue(true))
+    context("with a webanvil.config (webanvil owns the tsconfig)", () => {
+        beforeEach(() => h.hasWebanvilConfig.mockReturnValue(true))
 
         it("regenerates the root tsconfig, bypassing detection and scaffolding", async () => {
             process.stdout.isTTY = true
@@ -111,7 +111,7 @@ describe("typecheck tsconfig resolution", () => {
 
     it("prefers --config over detection, scaffolding, and ownership", async () => {
         process.stdout.isTTY = true
-        h.hasVialConfig.mockReturnValue(true)
+        h.hasWebanvilConfig.mockReturnValue(true)
         h.detectConfig.mockReturnValue("DETECTED")
         await run({ config: "USER" })
         expect(projectArg()).toBe("USER")

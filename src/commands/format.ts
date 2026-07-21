@@ -1,5 +1,5 @@
 import { defineCommand } from "cmdore"
-import { loadVialConfig } from "../config"
+import { loadWebanvilConfig } from "../config"
 import { check, config } from "../options"
 import { biomeConfig, detectConfig, runBiome } from "../tools"
 
@@ -10,7 +10,7 @@ export const formatCommand = defineCommand({
     arguments: [{ name: "paths", description: "Files or directories to format", variadic: true }],
     options: [check, config],
     run: async ({ paths, check, config }) => {
-        const c = await loadVialConfig()
+        const c = await loadWebanvilConfig()
         // Default rewrites files; `--check` reports drift and exits non-zero instead.
         await runBiome("format", !check, paths, config ?? detectConfig("biome") ?? biomeConfig(c))
     }

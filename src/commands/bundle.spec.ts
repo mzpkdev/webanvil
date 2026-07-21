@@ -5,7 +5,7 @@ type RunCall = { pkg: string; args: string[] }
 const h = vi.hoisted(() => ({ runCalls: [] as RunCall[] }))
 
 vi.mock("../config", () => ({
-    loadVialConfig: (): Promise<unknown> =>
+    loadWebanvilConfig: (): Promise<unknown> =>
         Promise.resolve({ target: "browser", bundle: { minify: false, sourcemap: false } })
 }))
 

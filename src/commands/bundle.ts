@@ -1,21 +1,21 @@
 import path from "node:path"
 import { defineCommand } from "cmdore"
-import { loadVialConfig, type Target, type VialConfig } from "../config"
+import { loadWebanvilConfig, type Target, type WebanvilConfig } from "../config"
 import * as opt from "../options"
 import { detectConfig, run, targets, whenProvided, writeConfig } from "../tools"
 
 export const bundleCommand = defineCommand({
     name: "bundle",
     description: "Bundle an entry point into a single file",
-    examples: ["src/index.ts --outfile dist/vial.js --minify", "src/index.ts --outfile dist/vial.js --watch"],
+    examples: ["src/index.ts --outfile dist/webanvil.js --minify", "src/index.ts --outfile dist/webanvil.js --watch"],
     arguments: [{ name: "entry", description: "Entry point to bundle", required: true }],
     options: [opt.outfile, opt.target, opt.minify, opt.sourcemap, opt.watch, opt.config],
     run: async ({ entry, outfile, target, minify, sourcemap, watch, config }) => {
-        const overrides: VialConfig = {
+        const overrides: WebanvilConfig = {
             target: whenProvided(opt.target, target as Target),
             bundle: { minify: whenProvided(opt.minify, minify), sourcemap: whenProvided(opt.sourcemap, sourcemap) }
         }
-        const c = await loadVialConfig(overrides)
+        const c = await loadWebanvilConfig(overrides)
         // Written as raw source (not writeJsonConfig) because Vite's lib config needs a
         // live `fileName` function and a resolved entry path.
         const cfg =

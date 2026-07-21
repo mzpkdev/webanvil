@@ -4,5 +4,5 @@ export const config = defineOption({
     name: "config",
     arity: 1,
     hint: "path",
-    description: "Use this config file instead of vial's generated defaults"
+    description: "Use this config file instead of webanvil's generated defaults"
 })

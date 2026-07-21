@@ -1,5 +1,5 @@
 import { defineCommand } from "cmdore"
-import { loadVialConfig, type VialConfig } from "../config"
+import { loadWebanvilConfig, type WebanvilConfig } from "../config"
 import * as opt from "../options"
 import { detectConfig, run, whenProvided, writeJsonConfig } from "../tools"
 
@@ -10,8 +10,8 @@ export const testCommand = defineCommand({
     arguments: [{ name: "patterns", description: "Test names or paths to run", variadic: true }],
     options: [opt.watch, opt.coverage, opt.config],
     run: async ({ patterns, watch, coverage, config }) => {
-        const overrides: VialConfig = { test: { coverage: whenProvided(opt.coverage, coverage) } }
-        const c = await loadVialConfig(overrides)
+        const overrides: WebanvilConfig = { test: { coverage: whenProvided(opt.coverage, coverage) } }
+        const c = await loadWebanvilConfig(overrides)
         const cfg =
             config ??
             detectConfig("vitest") ??
@@ -21,7 +21,7 @@ export const testCommand = defineCommand({
                     environment: c.test.environment,
                     watch: Boolean(watch),
                     coverage: { enabled: c.test.coverage },
-                    // A package with no tests is not a failure; `vial run <task>` runs `vial test` in
+                    // A package with no tests is not a failure; `webanvil run <task>` runs `webanvil test` in
                     // every scriptless workspace package, and empty ones must not fail the whole run.
                     passWithNoTests: true
                 }

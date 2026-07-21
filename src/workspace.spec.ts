@@ -5,7 +5,7 @@ import { findWorkspaceRoot, workspacePackages } from "./workspace"
 
 /** A throwaway workspace: root manifest with `workspaces`, plus packages under packages/<name>. */
 const workspace = (packages: Record<string, { scripts?: Record<string, string> }>): string => {
-    const root = mkdtempSync(path.join(tmpdir(), "vial-ws-"))
+    const root = mkdtempSync(path.join(tmpdir(), "webanvil-ws-"))
     writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "root", workspaces: ["packages/*"] }))
     for (const [name, manifest] of Object.entries(packages)) {
         const dir = path.join(root, "packages", name)
@@ -22,7 +22,7 @@ describe("findWorkspaceRoot", () => {
     })
 
     it("is undefined outside any workspace", () => {
-        const solo = mkdtempSync(path.join(tmpdir(), "vial-solo-"))
+        const solo = mkdtempSync(path.join(tmpdir(), "webanvil-solo-"))
         writeFileSync(path.join(solo, "package.json"), JSON.stringify({ name: "solo" }))
         expect(findWorkspaceRoot(solo)).toBeUndefined()
     })
@@ -38,7 +38,7 @@ describe("workspacePackages", () => {
     })
 
     it("is empty when the root manifest declares no workspaces", () => {
-        const solo = mkdtempSync(path.join(tmpdir(), "vial-solo-"))
+        const solo = mkdtempSync(path.join(tmpdir(), "webanvil-solo-"))
         writeFileSync(path.join(solo, "package.json"), JSON.stringify({ name: "solo" }))
         expect(workspacePackages(solo)).toEqual([])
     })

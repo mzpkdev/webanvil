@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs"
 import path from "node:path"
 import { CmdoreError, defineCommand } from "cmdore"
-import { loadVialConfig, type Target, type VialConfig } from "../config"
+import { loadWebanvilConfig, type Target, type WebanvilConfig } from "../config"
 import { detectPlugins } from "../frameworks"
 import * as opt from "../options"
 import { detectConfig, run, targets, watchBuild, whenProvided, writeConfig, writeJsonConfig } from "../tools"
@@ -13,7 +13,7 @@ export const buildCommand = defineCommand({
     arguments: [{ name: "entry", description: "Library entry point (omit for an app build)", required: false }],
     options: [opt.app, opt.outdir, opt.target, opt.minify, opt.sourcemap, opt.watch, opt.config],
     run: async ({ entry, app, outdir, target, minify, sourcemap, watch, config }) => {
-        const overrides: VialConfig = {
+        const overrides: WebanvilConfig = {
             target: whenProvided(opt.target, target as Target),
             build: {
                 outDir: whenProvided(opt.outdir, outdir),
@@ -21,7 +21,7 @@ export const buildCommand = defineCommand({
                 sourcemap: whenProvided(opt.sourcemap, sourcemap)
             }
         }
-        const c = await loadVialConfig(overrides)
+        const c = await loadWebanvilConfig(overrides)
 
         // App when asked, or when there is an index.html and no explicit library entry. Otherwise
         // the entry-driven library build (unbuild).

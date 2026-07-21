@@ -46,7 +46,7 @@ export const detectPlugins = (cwd: string = process.cwd()): PluginWiring => {
         try {
             resolved = require.resolve(framework.plugin)
         } catch {
-            terminal.warn(`vial: ${framework.dep} detected but its Vite plugin "${framework.plugin}" is not installed`)
+            terminal.warn(`webanvil: ${framework.dep} detected but its Vite plugin "${framework.plugin}" is not installed`)
             continue
         }
         const binding = framework.named ?? framework.call.slice(0, framework.call.indexOf("("))

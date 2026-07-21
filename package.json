@@ -1,10 +1,10 @@
 {
-    "name": "@crazy-pocs/vial",
+    "name": "@crazy-pocs/webanvil",
     "version": "0.0.0",
     "private": true,
     "type": "module",
     "bin": {
-        "vial": "./src/cli.ts"
+        "webanvil": "./src/cli.ts"
     },
     "main": "./src/index.ts",
     "types": "./src/index.ts",
@@ -16,11 +16,11 @@
     },
     "files": [
         "dist",
-        "vial.schema.json"
+        "webanvil.schema.json"
     ],
     "publishConfig": {
         "bin": {
-            "vial": "./dist/cli.mjs"
+            "webanvil": "./dist/cli.mjs"
         },
         "main": "./dist/index.mjs",
         "types": "./dist/index.d.mts",

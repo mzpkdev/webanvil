@@ -8,7 +8,7 @@ import { findWorkspaceRoot } from "./workspace"
 
 export type Target = "browser" | "node" | "bun"
 
-/** Per-section settings, each field required. `VialConfig` exposes partial views of these for
+/** Per-section settings, each field required. `WebanvilConfig` exposes partial views of these for
  *  the user-facing file; `ResolvedConfig` is the fully-merged result the generators read. */
 type BuildConfig = { outDir: string; declaration: boolean; clean: boolean; sourcemap: boolean; minify: boolean }
 type BundleConfig = { minify: boolean; sourcemap: boolean }
@@ -24,13 +24,13 @@ type FormatConfig = {
     semicolons: "always" | "asNeeded"
 }
 type LintConfig = { rules: "recommended" | Record<string, unknown> }
-/** One Turborepo task (a package.json script vial orchestrates), keyed by task name. */
+/** One Turborepo task (a package.json script webanvil orchestrates), keyed by task name. */
 type TaskConfig = { dependsOn?: string[]; outputs?: string[]; inputs?: string[]; cache?: boolean; persistent?: boolean }
 
-/** The user-facing `vial.config.{json,ts,js}` shape: plain settings in vial's own vocabulary.
+/** The user-facing `webanvil.config.{json,ts,js}` shape: plain settings in webanvil's own vocabulary.
  *  Every field is optional; `extends` pulls in c12 layers, including remote presets. */
-export type VialConfig = {
-    /** JSON Schema reference for editor autocomplete in vial.config.json; ignored when loaded. */
+export type WebanvilConfig = {
+    /** JSON Schema reference for editor autocomplete in webanvil.config.json; ignored when loaded. */
     $schema?: string
     /** c12 layers to inherit, e.g. "./base.json" or a remote "github:org/preset#ref". */
     extends?: string | string[]
@@ -38,7 +38,7 @@ export type VialConfig = {
     target?: Target
     build?: Partial<BuildConfig>
     bundle?: Partial<BundleConfig>
-    /** Dev server (`vial dev`, aliased `serve`). */
+    /** Dev server (`webanvil dev`, aliased `serve`). */
     dev?: Partial<DevConfig>
     preview?: Partial<PreviewConfig>
     test?: Partial<TestConfig>
@@ -46,7 +46,7 @@ export type VialConfig = {
     typecheck?: Partial<TypecheckConfig>
     format?: Partial<FormatConfig>
     lint?: Partial<LintConfig>
-    /** Turborepo task pipeline `vial run` orchestrates, keyed by task name. */
+    /** Turborepo task pipeline `webanvil run` orchestrates, keyed by task name. */
     tasks?: Record<string, TaskConfig>
 }
 
@@ -64,8 +64,8 @@ export type ResolvedConfig = {
     tasks: Record<string, TaskConfig>
 }
 
-/** vial's built-in defaults, the lowest-precedence layer. Overridden by `extends` layers, then
- *  the local vial.config, then explicit CLI flags. Kept verbatim from the old hardcoded configs. */
+/** webanvil's built-in defaults, the lowest-precedence layer. Overridden by `extends` layers, then
+ *  the local webanvil.config, then explicit CLI flags. Kept verbatim from the old hardcoded configs. */
 export const BUILTIN: ResolvedConfig = {
     target: "browser",
     build: { outDir: "dist", declaration: true, clean: true, sourcemap: false, minify: false },
@@ -104,7 +104,7 @@ export const BUILTIN: ResolvedConfig = {
 /** Runtime shape check for the merged user config (before BUILTIN fills gaps). Strict at the top
  *  level so a mistyped section (e.g. `formatter` for `format`) is a hard error, not silence. */
 const configSchema = z.strictObject({
-    // Allowed so a vial.config.json can carry a `$schema` for editor tooling; not consumed like
+    // Allowed so a webanvil.config.json can carry a `$schema` for editor tooling; not consumed like
     // `extends` (which c12 strips before validation), so it must be a known key here.
     $schema: z.string().optional(),
     target: z.enum(["browser", "node", "bun"]).optional(),
@@ -154,13 +154,13 @@ const configSchema = z.strictObject({
         .optional()
 })
 
-/** vial.config as a JSON Schema, generated from the same zod schema that validates it at load time
+/** webanvil.config as a JSON Schema, generated from the same zod schema that validates it at load time
  *  so editor hints and the runtime check never drift. Shipped in the package (see src/schema.ts)
- *  and referenced by a vial.config.json via `$schema`. */
+ *  and referenced by a webanvil.config.json via `$schema`. */
 export const configJsonSchema = (): Record<string, unknown> => ({
     ...(z.toJSONSchema(configSchema) as Record<string, unknown>),
-    title: "vial.config",
-    description: "Configuration for the vial CLI. Every field is optional."
+    title: "webanvil.config",
+    description: "Configuration for the webanvil CLI. Every field is optional."
 })
 
 const cache = new Map<string, Promise<ResolvedConfig>>()
@@ -180,26 +180,26 @@ const configChain = (cwd: string): string[] => {
     return chain
 }
 
-/** Load and merge the vial.config chain from the command's cwd up to the workspace root, over
- *  vial's built-ins. Precedence high to low: `overrides` (explicit CLI flags) > nearest package's
- *  vial.config > ... > workspace-root vial.config > BUILTIN. Each level still resolves its own
+/** Load and merge the webanvil.config chain from the command's cwd up to the workspace root, over
+ *  webanvil's built-ins. Precedence high to low: `overrides` (explicit CLI flags) > nearest package's
+ *  webanvil.config > ... > workspace-root webanvil.config > BUILTIN. Each level still resolves its own
  *  `extends` (remote presets included) through c12. Memoized per cwd+overrides key. */
-export const loadVialConfig = (overrides: VialConfig = {}, cwd: string = process.cwd()): Promise<ResolvedConfig> => {
+export const loadWebanvilConfig = (overrides: WebanvilConfig = {}, cwd: string = process.cwd()): Promise<ResolvedConfig> => {
     const key = `${cwd} ${JSON.stringify(overrides)}`
     const cached = cache.get(key)
     if (cached) {
         return cached
     }
     const loaded = (async (): Promise<ResolvedConfig> => {
-        const partials: VialConfig[] = []
+        const partials: WebanvilConfig[] = []
         for (const dir of configChain(cwd)) {
-            if (!hasVialConfig(dir)) {
+            if (!hasWebanvilConfig(dir)) {
                 continue
             }
-            const { config } = await loadConfig<VialConfig>({ name: "vial", cwd: dir, rcFile: false })
+            const { config } = await loadConfig<WebanvilConfig>({ name: "webanvil", cwd: dir, rcFile: false })
             const result = configSchema.safeParse(config)
             if (!result.success) {
-                throw new CmdoreError(`invalid vial.config in ${dir}:\n${z.prettifyError(result.error)}`, {
+                throw new CmdoreError(`invalid webanvil.config in ${dir}:\n${z.prettifyError(result.error)}`, {
                     exitCode: 1
                 })
             }
@@ -211,11 +211,11 @@ export const loadVialConfig = (overrides: VialConfig = {}, cwd: string = process
     return loaded
 }
 
-/** Extensions c12 would load a vial.config from, most-preferred first. */
+/** Extensions c12 would load a webanvil.config from, most-preferred first. */
 const CONFIG_EXTENSIONS = ["json", "jsonc", "ts", "mts", "cts", "js", "mjs", "cjs"]
 
-/** Whether the project has a vial.config file in `cwd` (pure fs check, no c12 load so it never
- *  touches the network). Drives tsconfig ownership: present means vial owns and rewrites the
+/** Whether the project has a webanvil.config file in `cwd` (pure fs check, no c12 load so it never
+ *  touches the network). Drives tsconfig ownership: present means webanvil owns and rewrites the
  *  root tsconfig; absent keeps the scaffold-once/never-clobber behavior. */
-export const hasVialConfig = (cwd: string = process.cwd()): boolean =>
-    CONFIG_EXTENSIONS.some((ext) => existsSync(path.join(cwd, `vial.config.${ext}`)))
+export const hasWebanvilConfig = (cwd: string = process.cwd()): boolean =>
+    CONFIG_EXTENSIONS.some((ext) => existsSync(path.join(cwd, `webanvil.config.${ext}`)))

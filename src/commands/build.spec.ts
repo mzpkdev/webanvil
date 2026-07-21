@@ -9,7 +9,7 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock("../config", () => ({
-    loadVialConfig: (): Promise<unknown> => Promise.resolve({ target: "node", build: { outDir: "dist" } })
+    loadWebanvilConfig: (): Promise<unknown> => Promise.resolve({ target: "node", build: { outDir: "dist" } })
 }))
 
 vi.mock("../frameworks", () => ({

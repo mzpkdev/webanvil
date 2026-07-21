@@ -6,7 +6,7 @@ import { detectPlugins } from "./frameworks"
 /** A temp package dir listing `deps`, optionally with a fake installed plugin so `require.resolve`
  *  from the package succeeds. */
 const pkgDir = (deps: string[], installedPlugin?: string): string => {
-    const dir = mkdtempSync(path.join(tmpdir(), "vial-fw-"))
+    const dir = mkdtempSync(path.join(tmpdir(), "webanvil-fw-"))
     writeFileSync(
         path.join(dir, "package.json"),
         JSON.stringify({ name: "app", dependencies: Object.fromEntries(deps.map((d) => [d, "*"])) })

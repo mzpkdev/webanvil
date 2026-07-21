@@ -11,7 +11,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock("../config", () => ({
     // Distinct port/host so the generated config asserts it reads the merged values, not option defaults.
-    loadVialConfig: (): Promise<unknown> => Promise.resolve({ dev: { port: 4321, host: "0.0.0.0" } })
+    loadWebanvilConfig: (): Promise<unknown> => Promise.resolve({ dev: { port: 4321, host: "0.0.0.0" } })
 }))
 
 vi.mock("../tools", () => ({

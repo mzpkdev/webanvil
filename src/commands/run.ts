@@ -1,10 +1,10 @@
 import { defineCommand } from "cmdore"
-import { loadVialConfig } from "../config"
+import { loadWebanvilConfig } from "../config"
 import { filter } from "../options"
-import { exec, execVialIn, getPassthrough, resolveTurboConfig } from "../tools"
+import { exec, execWebanvilIn, getPassthrough, resolveTurboConfig } from "../tools"
 import { findWorkspaceRoot, workspacePackages } from "../workspace"
 
-/** Vial commands that run across a workspace with no required arguments. `build`/`bundle` need an
+/** Webanvil commands that run across a workspace with no required arguments. `build`/`bundle` need an
  *  entry and `dev`/`preview` are long-lived servers, so they are not auto-run in scriptless
  *  packages. */
 const WORKSPACE_TASKS = new Set(["test", "typecheck", "lint", "format", "clean"])
@@ -28,11 +28,11 @@ export const runCommand = defineCommand({
     description: "Run a task across the workspace with caching, via Turborepo",
     examples: ["build --filter web", "test -- --coverage"],
     arguments: [
-        { name: "task", description: "Task (a package.json script, or a vial command) to run", required: true }
+        { name: "task", description: "Task (a package.json script, or a webanvil command) to run", required: true }
     ],
     options: [filter],
     run: async ({ task, filter }) => {
-        const { tasks } = await loadVialConfig()
+        const { tasks } = await loadWebanvilConfig()
         await resolveTurboConfig(tasks)
         const forwarded = getPassthrough()
 
@@ -58,14 +58,14 @@ export const runCommand = defineCommand({
             await exec("turbo")(turboArgs)
         }
 
-        // Cover the packages turbo skipped by running `vial <task>` in each, when the task is one
-        // vial can run without arguments. These run uncached and outside turbo's dependency order.
+        // Cover the packages turbo skipped by running `webanvil <task>` in each, when the task is one
+        // webanvil can run without arguments. These run uncached and outside turbo's dependency order.
         if (!WORKSPACE_TASKS.has(task)) {
             return
         }
         const missing = packages.filter((pkg) => !pkg.scripts[task] && matchesFilter(pkg.name, filter))
         for (const pkg of missing) {
-            await execVialIn(pkg.dir, forwarded.length > 0 ? [task, "--", ...forwarded] : [task])
+            await execWebanvilIn(pkg.dir, forwarded.length > 0 ? [task, "--", ...forwarded] : [task])
         }
     }
 })

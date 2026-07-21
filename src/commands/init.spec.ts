@@ -3,7 +3,7 @@ import { initCommand } from "./init"
 const h = vi.hoisted(() => ({
     writes: [] as { file: string; contents: string }[],
     existing: new Set<string>(),
-    hasVialConfig: vi.fn((): boolean => false)
+    hasWebanvilConfig: vi.fn((): boolean => false)
 }))
 
 // Basename-keyed fs so assertions ignore the temp cwd prefix.
@@ -17,7 +17,7 @@ vi.mock("node:fs", () => ({
 }))
 
 vi.mock("../config", () => ({
-    hasVialConfig: h.hasVialConfig,
+    hasWebanvilConfig: h.hasWebanvilConfig,
     BUILTIN: { typecheck: { compilerOptions: { strict: true } } }
 }))
 
@@ -30,25 +30,25 @@ describe("init scaffolding", () => {
     beforeEach(() => {
         h.writes.length = 0
         h.existing.clear()
-        h.hasVialConfig.mockReturnValue(false)
+        h.hasWebanvilConfig.mockReturnValue(false)
     })
 
     it("writes a JSON config (with a $schema pointer), tsconfig, and .gitignore by default", async () => {
         await initCommand.run({ ts: false, force: false })
-        expect(names()).toEqual(["vial.config.json", "tsconfig.json", ".gitignore"])
-        expect(bodyOf("vial.config.json")).toContain("./node_modules/@crazy-pocs/vial/vial.schema.json")
+        expect(names()).toEqual(["webanvil.config.json", "tsconfig.json", ".gitignore"])
+        expect(bodyOf("webanvil.config.json")).toContain("./node_modules/@crazy-pocs/webanvil/webanvil.schema.json")
         expect(bodyOf("tsconfig.json")).toBe("TSCONFIG")
     })
 
-    it("scaffolds a typed vial.config.ts under --ts, never the JSON variant", async () => {
+    it("scaffolds a typed webanvil.config.ts under --ts, never the JSON variant", async () => {
         await initCommand.run({ ts: true, force: false })
-        expect(names()).toContain("vial.config.ts")
-        expect(names()).not.toContain("vial.config.json")
-        expect(bodyOf("vial.config.ts")).toContain("satisfies VialConfig")
+        expect(names()).toContain("webanvil.config.ts")
+        expect(names()).not.toContain("webanvil.config.json")
+        expect(bodyOf("webanvil.config.ts")).toContain("satisfies WebanvilConfig")
     })
 
     it("never clobbers existing files", async () => {
-        h.hasVialConfig.mockReturnValue(true) // a vial.config in any extension already exists
+        h.hasWebanvilConfig.mockReturnValue(true) // a webanvil.config in any extension already exists
         h.existing.add("tsconfig.json")
         h.existing.add(".gitignore")
         await initCommand.run({ ts: false, force: false })
@@ -56,10 +56,10 @@ describe("init scaffolding", () => {
     })
 
     it("overwrites everything under --force", async () => {
-        h.hasVialConfig.mockReturnValue(true)
+        h.hasWebanvilConfig.mockReturnValue(true)
         h.existing.add("tsconfig.json")
         h.existing.add(".gitignore")
         await initCommand.run({ ts: false, force: true })
-        expect(names()).toEqual(["vial.config.json", "tsconfig.json", ".gitignore"])
+        expect(names()).toEqual(["webanvil.config.json", "tsconfig.json", ".gitignore"])
     })
 })

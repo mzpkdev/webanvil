@@ -33,8 +33,8 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock("../config", () => ({
-    loadVialConfig: (): Promise<unknown> => Promise.resolve(h.resolved),
-    hasVialConfig: (): boolean => false
+    loadWebanvilConfig: (): Promise<unknown> => Promise.resolve(h.resolved),
+    hasWebanvilConfig: (): boolean => false
 }))
 
 vi.mock("../tools", () => ({
@@ -149,7 +149,7 @@ describe("config precedence (generated < detected < --config)", () => {
     })
 
     describe.each(CASES)("$name", ({ flag, run }) => {
-        it("uses vial's generated config when neither --config nor a repo config exists", async () => {
+        it("uses webanvil's generated config when neither --config nor a repo config exists", async () => {
             await run(undefined)
             expect(lastConfig(flag)).toBe("GENERATED")
         })
@@ -168,7 +168,7 @@ describe("config precedence (generated < detected < --config)", () => {
     })
 
     describe.each(BIOME_CASES)("$name (biome)", ({ run }) => {
-        it("uses vial's generated biome config by default", async () => {
+        it("uses webanvil's generated biome config by default", async () => {
             await run(undefined)
             expect(h.biomeCalls.at(-1)?.configPath).toBe("GENERATED")
         })

@@ -16,7 +16,7 @@ vi.mock("node:fs", () => ({
     }
 }))
 
-vi.mock("../config", () => ({ loadVialConfig: (): Promise<unknown> => Promise.resolve(h.config) }))
+vi.mock("../config", () => ({ loadWebanvilConfig: (): Promise<unknown> => Promise.resolve(h.config) }))
 
 const run = (deep = false): unknown => cleanCommand.run({ deep })
 

@@ -1,7 +1,7 @@
 import { existsSync, rmSync } from "node:fs"
 import path from "node:path"
 import { defineCommand, effect, terminal } from "cmdore"
-import { loadVialConfig } from "../config"
+import { loadWebanvilConfig } from "../config"
 import * as opt from "../options"
 
 const GLOB = /[*?[\]{}()!]/
@@ -30,7 +30,7 @@ export const cleanCommand = defineCommand({
     options: [opt.deep],
     run: async ({ deep }) => {
         const cwd = process.cwd()
-        const c = await loadVialConfig()
+        const c = await loadWebanvilConfig()
 
         // Candidates (relative to cwd): the build outDir, every task's declared outputs (the same
         // globs turbo caches, so both read one declaration), and the tool caches. --deep adds
@@ -49,7 +49,7 @@ export const cleanCommand = defineCommand({
             candidates.push("node_modules")
         }
 
-        // Never delete outside cwd, the sources, the manifest, or vial-owned config; node_modules is
+        // Never delete outside cwd, the sources, the manifest, or webanvil-owned config; node_modules is
         // protected unless --deep (the cache subdirs above stay fair game, being deeper paths).
         const protectedPaths = new Set(
             ["src", "package.json", "tsconfig.json", "turbo.json"].map((p) => path.join(cwd, p))
@@ -60,7 +60,7 @@ export const cleanCommand = defineCommand({
         const isSafe = (abs: string): boolean =>
             abs.startsWith(`${cwd}${path.sep}`) &&
             !protectedPaths.has(abs) &&
-            !path.basename(abs).startsWith("vial.config.")
+            !path.basename(abs).startsWith("webanvil.config.")
 
         // Dedup by resolved path (outDir "dist" and output "dist/**" collapse to one), keep only safe,
         // existing targets.
@@ -73,11 +73,11 @@ export const cleanCommand = defineCommand({
         }
 
         if (targets.size === 0) {
-            terminal.log("vial: nothing to clean")
+            terminal.log("webanvil: nothing to clean")
             return
         }
         for (const [abs, rel] of targets) {
-            terminal.log(`vial: ${effect.enabled ? "removing" : "would remove"} ${rel}`)
+            terminal.log(`webanvil: ${effect.enabled ? "removing" : "would remove"} ${rel}`)
             await effect(() => rmSync(abs, { recursive: true, force: true }))
         }
     }

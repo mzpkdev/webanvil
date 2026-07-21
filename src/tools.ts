@@ -4,7 +4,7 @@ import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { CmdoreError, effect, terminal } from "cmdore"
-import { hasVialConfig, type ResolvedConfig } from "./config"
+import { hasWebanvilConfig, type ResolvedConfig } from "./config"
 
 const require = createRequire(import.meta.url)
 
@@ -17,8 +17,8 @@ export type Cmd = {
 }
 
 /**
- * Absolute path to a dependency's CLI entry, resolved from vial's own install so
- * spawning works whether vial runs from source or as a published package, never
+ * Absolute path to a dependency's CLI entry, resolved from webanvil's own install so
+ * spawning works whether webanvil runs from source or as a published package, never
  * off the caller's PATH or nearest `node_modules/.bin`.
  */
 export const binOf = (pkg: string): string => {
@@ -57,7 +57,7 @@ export const cmd =
     (args: string[]): Cmd => ({ bin: binOf(pkg), args, label: pkg.replace(/^@[^/]+\//, "") })
 
 /**
- * Effect: run a described command under vial's own runtime, streaming its output.
+ * Effect: run a described command under webanvil's own runtime, streaming its output.
  * Throws a CmdoreError carrying the tool's exit code so `execute` propagates it,
  * and is a no-op under `--dry-run` (the spawn is wrapped in `effect`).
  */
@@ -83,7 +83,7 @@ export const setPassthrough = (args: readonly string[]): void => {
 }
 
 /** Option tokens the user actually typed this run (names and aliases, dashes stripped). Lets a
- *  command tell an explicit flag from a cmdore default so unset flags never clobber vial.config. */
+ *  command tell an explicit flag from a cmdore default so unset flags never clobber webanvil.config. */
 let provided: ReadonlySet<string> = new Set()
 
 /** Pull the provided option tokens out of argv (the slice before `--`). */
@@ -105,7 +105,7 @@ export const wasProvided = (option: { name: string; alias?: string }): boolean =
     provided.has(option.name) || (option.alias != null && provided.has(option.alias))
 
 /** The option's value when explicitly passed this run, else undefined. defu and c12 ignore
- *  undefined, so an unset flag never clobbers vial.config. Used to build config overrides. */
+ *  undefined, so an unset flag never clobbers webanvil.config. Used to build config overrides. */
 export const whenProvided = <T>(option: { name: string; alias?: string }, value: T): T | undefined =>
     wasProvided(option) ? value : undefined
 
@@ -122,18 +122,18 @@ export const run =
     (args: string[]): Promise<void> =>
         exec(pkg)([...args, ...passthrough])
 
-/** Re-invoke vial's own CLI in another package's directory, under vial's runtime, streaming
- *  output. Used by `run` to execute a vial command in workspace packages that declare no matching
+/** Re-invoke webanvil's own CLI in another package's directory, under webanvil's runtime, streaming
+ *  output. Used by `run` to execute a webanvil command in workspace packages that declare no matching
  *  script. Respects --dry-run and verbose logging via `spawn`. */
-export const execVialIn = (dir: string, args: string[]): Promise<void> =>
-    spawn({ bin: binOf("@crazy-pocs/vial"), args, label: `vial ${args[0] ?? ""}`.trim(), cwd: dir })
+export const execWebanvilIn = (dir: string, args: string[]): Promise<void> =>
+    spawn({ bin: binOf("@crazy-pocs/webanvil"), args, label: `webanvil ${args[0] ?? ""}`.trim(), cwd: dir })
 
 /** The passthrough args (everything after `--`), for commands that route them explicitly. */
 export const getPassthrough = (): readonly string[] => passthrough
 
 /** Write config text into a throwaway dir and return the file path to point a tool at. */
 export const writeConfig = (filename: string, contents: string): string => {
-    const file = path.join(mkdtempSync(path.join(tmpdir(), "vial-")), filename)
+    const file = path.join(mkdtempSync(path.join(tmpdir(), "webanvil-")), filename)
     writeFileSync(file, contents)
     return file
 }
@@ -145,7 +145,7 @@ export const writeJsonConfig = (filename: string, config: object): string =>
 const withExtensions = (base: string): string[] =>
     ["ts", "mts", "cts", "js", "mjs", "cjs"].map((ext) => `${base}.${ext}`)
 
-/** Project config filenames vial looks for in the cwd, per tool. */
+/** Project config filenames webanvil looks for in the cwd, per tool. */
 const CONFIG_NAMES: Record<string, string[]> = {
     vite: withExtensions("vite.config"),
     vitest: [...withExtensions("vitest.config"), ...withExtensions("vite.config")],
@@ -154,7 +154,7 @@ const CONFIG_NAMES: Record<string, string[]> = {
     biome: ["biome.json", "biome.jsonc"]
 }
 
-/** First project config for a tool found in the cwd, or undefined. Sits between vial's
+/** First project config for a tool found in the cwd, or undefined. Sits between webanvil's
  *  generated default and an explicit --config: default < detected < --config. */
 export const detectConfig = (tool: string): string | undefined => {
     for (const name of CONFIG_NAMES[tool] ?? []) {
@@ -184,27 +184,27 @@ const tsconfigJson = (compilerOptions: Record<string, unknown>, base = ""): stri
 export const tempTsconfig = (compilerOptions: Record<string, unknown>): string =>
     writeConfig("tsconfig.json", tsconfigJson(compilerOptions, `${path.resolve(".")}/`))
 
-/** Scaffold vial's default tsconfig.json under `cwd`, never clobbering an existing one. Used
- *  when there is no vial.config, so the file is the user's to own after the first write. */
+/** Scaffold webanvil's default tsconfig.json under `cwd`, never clobbering an existing one. Used
+ *  when there is no webanvil.config, so the file is the user's to own after the first write. */
 export const scaffoldTsconfig = (compilerOptions: Record<string, unknown>, cwd: string = process.cwd()): Promise<string> => {
     const file = path.join(cwd, "tsconfig.json")
     return existsSync(file)
         ? Promise.resolve(file)
         : effect(() => {
-              terminal.log(`vial: writing default tsconfig.json to ${file}`)
+              terminal.log(`webanvil: writing default tsconfig.json to ${file}`)
               writeFileSync(file, tsconfigJson(compilerOptions))
           }).then(() => file)
 }
 
-/** Header marking a root file as vial-owned when a vial.config drives it (tsconfig, turbo.json). */
-const GENERATED_HEADER = "// Generated by vial from vial.config. Edit vial.config, not this file.\n"
+/** Header marking a root file as webanvil-owned when a webanvil.config drives it (tsconfig, turbo.json). */
+const GENERATED_HEADER = "// Generated by webanvil from webanvil.config. Edit webanvil.config, not this file.\n"
 
-/** The exact tsconfig.json text vial owns when a vial.config drives the project: header + options.
- *  Shared by `ownedTsconfig` (typecheck) and `vial init` so both write byte-identical files. */
+/** The exact tsconfig.json text webanvil owns when a webanvil.config drives the project: header + options.
+ *  Shared by `ownedTsconfig` (typecheck) and `webanvil init` so both write byte-identical files. */
 export const ownedTsconfigText = (compilerOptions: Record<string, unknown>): string =>
     `${GENERATED_HEADER}${tsconfigJson(compilerOptions)}\n`
 
-/** When a vial.config owns the root tsconfig: rewrite it from the merged compilerOptions, or under
+/** When a webanvil.config owns the root tsconfig: rewrite it from the merged compilerOptions, or under
  *  `check` verify it is in sync and fail otherwise. Writes only on drift, so repeated runs are
  *  quiet and leave git clean. Returns the tsconfig path either way. */
 export const ownedTsconfig = async (
@@ -218,11 +218,11 @@ export const ownedTsconfig = async (
         return file
     }
     if (check) {
-        throw new CmdoreError("tsconfig.json is out of sync with vial.config; run `vial typecheck` to regenerate it", {
+        throw new CmdoreError("tsconfig.json is out of sync with webanvil.config; run `webanvil typecheck` to regenerate it", {
             exitCode: 1
         })
     }
-    terminal.log(`vial: writing tsconfig.json from vial.config to ${file}`)
+    terminal.log(`webanvil: writing tsconfig.json from webanvil.config to ${file}`)
     await effect(() => writeFileSync(file, expected))
     return file
 }
@@ -232,21 +232,21 @@ const turboJson = (tasks: ResolvedConfig["tasks"]): string =>
     JSON.stringify({ $schema: "https://turborepo.dev/schema.json", tasks }, null, 4)
 
 /** Ensure a root turbo.json for `turbo run`, which reads it only from the workspace root (no
- *  config-path flag exists). With a vial.config, vial owns it and regenerates from the merged
+ *  config-path flag exists). With a webanvil.config, webanvil owns it and regenerates from the merged
  *  tasks on drift; without one, it scaffolds a default once and never clobbers an existing file. */
 export const resolveTurboConfig = async (tasks: ResolvedConfig["tasks"], cwd: string = process.cwd()): Promise<void> => {
     const file = path.join(cwd, "turbo.json")
-    if (hasVialConfig(cwd)) {
+    if (hasWebanvilConfig(cwd)) {
         const expected = `${GENERATED_HEADER}${turboJson(tasks)}\n`
         if (existsSync(file) && readFileSync(file, "utf8") === expected) {
             return
         }
-        terminal.log(`vial: writing turbo.json from vial.config to ${file}`)
+        terminal.log(`webanvil: writing turbo.json from webanvil.config to ${file}`)
         await effect(() => writeFileSync(file, expected))
         return
     }
     if (!existsSync(file)) {
-        terminal.log(`vial: writing default turbo.json to ${file}`)
+        terminal.log(`webanvil: writing default turbo.json to ${file}`)
         await effect(() => writeFileSync(file, `${turboJson(tasks)}\n`))
     }
 }
@@ -257,13 +257,13 @@ export const withPaths = (paths: string[]): string[] => (paths.length > 0 ? path
 const PLATFORM: Record<string, string> = { browser: "browser", node: "node", bun: "neutral" }
 const VITE_TARGET: Record<string, string> = { browser: "baseline-widely-available", node: "node18", bun: "esnext" }
 
-/** Map vial's `--target` (browser|bun|node) onto each bundler's own target vocabulary. */
+/** Map webanvil's `--target` (browser|bun|node) onto each bundler's own target vocabulary. */
 export const targets = (target: string): { platform: string; viteTarget: string } => ({
     platform: PLATFORM[target] ?? "browser",
     viteTarget: VITE_TARGET[target] ?? "baseline-widely-available"
 })
 
-/** Biome runs config-free, so vial generates a biome.json from the merged config and points
+/** Biome runs config-free, so webanvil generates a biome.json from the merged config and points
  *  `--config-path` at it, keeping output identical across repos regardless of local files. */
 export const biomeConfig = (c: ResolvedConfig): string =>
     path.dirname(
@@ -300,7 +300,7 @@ export const biomeConfig = (c: ResolvedConfig): string =>
 const biome = run("@biomejs/biome")
 
 /** Run a Biome subcommand over the given paths, applying fixes when asked, using the resolved
- *  config path (a --config, a detected biome.json, or vial's generated one). */
+ *  config path (a --config, a detected biome.json, or webanvil's generated one). */
 export const runBiome = (subcommand: string, apply: boolean, paths: string[], configPath: string): Promise<void> =>
     biome([subcommand, `--config-path=${configPath}`, ...(apply ? ["--write"] : []), ...withPaths(paths)])
 
@@ -362,6 +362,6 @@ export const watchBuild = async (watchRoot: string, outDir: string, task: () => 
         }
     }
     scan(path.resolve(watchRoot))
-    terminal.log(`vial: watching for changes under ${watchRoot} (Ctrl-C to stop)`)
+    terminal.log(`webanvil: watching for changes under ${watchRoot} (Ctrl-C to stop)`)
     return new Promise<void>(() => {}) // resolves never; the watcher runs until the process is interrupted
 }

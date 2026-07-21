@@ -1,6 +1,6 @@
 import { commands, metadata } from "./index"
 
-describe("vial", () => {
+describe("webanvil", () => {
     context("command registry", () => {
         it("exposes the scaffolded commands in order", () => {
             expect(commands.map((command) => command.name)).toEqual([
@@ -26,8 +26,8 @@ describe("vial", () => {
             }
         })
 
-        it("names the program vial", () => {
-            expect(metadata.name).toBe("vial")
+        it("names the program webanvil", () => {
+            expect(metadata.name).toBe("webanvil")
         })
     })
 })

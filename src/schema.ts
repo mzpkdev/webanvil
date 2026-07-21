@@ -2,9 +2,9 @@ import { writeFileSync } from "node:fs"
 import path from "node:path"
 import { configJsonSchema } from "./config"
 
-/** Filename of the JSON Schema shipped at vial's package root. A consumer's vial.config.json
- *  references it as `./node_modules/@crazy-pocs/vial/vial.schema.json`. */
-export const SCHEMA_FILE = "vial.schema.json"
+/** Filename of the JSON Schema shipped at webanvil's package root. A consumer's webanvil.config.json
+ *  references it as `./node_modules/@crazy-pocs/webanvil/webanvil.schema.json`. */
+export const SCHEMA_FILE = "webanvil.schema.json"
 
 /** The schema file's contents: the generated JSON Schema, pretty-printed with a trailing newline. */
 export const schemaText = (): string => `${JSON.stringify(configJsonSchema(), null, 4)}\n`
@@ -13,5 +13,5 @@ export const schemaText = (): string => `${JSON.stringify(configJsonSchema(), nu
 if (import.meta.main) {
     const out = path.join(import.meta.dirname, "..", SCHEMA_FILE)
     writeFileSync(out, schemaText())
-    console.log(`vial: wrote ${out}`)
+    console.log(`webanvil: wrote ${out}`)
 }

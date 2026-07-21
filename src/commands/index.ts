@@ -22,7 +22,7 @@ export * from "./run"
 export * from "./test"
 export * from "./typecheck"
 
-/** Every command wired into the vial CLI, in help-display order. */
+/** Every command wired into the webanvil CLI, in help-display order. */
 export const commands = [
     initCommand,
     buildCommand,

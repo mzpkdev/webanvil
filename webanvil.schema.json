@@ -190,6 +190,6 @@
         }
     },
     "additionalProperties": false,
-    "title": "vial.config",
-    "description": "Configuration for the vial CLI. Every field is optional."
+    "title": "webanvil.config",
+    "description": "Configuration for the webanvil CLI. Every field is optional."
 }

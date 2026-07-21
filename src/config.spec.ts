@@ -1,28 +1,28 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import { BUILTIN, configJsonSchema, hasVialConfig, loadVialConfig } from "./config"
+import { BUILTIN, configJsonSchema, hasWebanvilConfig, loadWebanvilConfig } from "./config"
 
 /** A throwaway project dir seeded with the given files (name -> JSON contents). */
 const project = (files: Record<string, unknown> = {}): string => {
-    const dir = mkdtempSync(path.join(tmpdir(), "vial-cfg-"))
+    const dir = mkdtempSync(path.join(tmpdir(), "webanvil-cfg-"))
     for (const [name, contents] of Object.entries(files)) {
         writeFileSync(path.join(dir, name), JSON.stringify(contents))
     }
     return dir
 }
 
-describe("loadVialConfig", () => {
-    it("falls back to BUILTIN when there is no vial.config", async () => {
-        const c = await loadVialConfig({}, project())
+describe("loadWebanvilConfig", () => {
+    it("falls back to BUILTIN when there is no webanvil.config", async () => {
+        const c = await loadWebanvilConfig({}, project())
         expect(c.format.lineWidth).toBe(120)
         expect(c.target).toBe("browser")
         expect(c.typecheck.compilerOptions.strict).toBe(true)
     })
 
-    it("merges a local vial.config over BUILTIN, keeping untouched fields", async () => {
-        const dir = project({ "vial.config.json": { format: { lineWidth: 100 } } })
-        const c = await loadVialConfig({}, dir)
+    it("merges a local webanvil.config over BUILTIN, keeping untouched fields", async () => {
+        const dir = project({ "webanvil.config.json": { format: { lineWidth: 100 } } })
+        const c = await loadWebanvilConfig({}, dir)
         expect(c.format.lineWidth).toBe(100) // from the file
         expect(c.format.indentWidth).toBe(4) // still BUILTIN
     })
@@ -30,85 +30,85 @@ describe("loadVialConfig", () => {
     it("layers extends below the local file and above BUILTIN", async () => {
         const dir = project({
             "base.json": { format: { lineWidth: 80, quoteStyle: "single" } },
-            "vial.config.json": { extends: "./base.json", format: { lineWidth: 100 } }
+            "webanvil.config.json": { extends: "./base.json", format: { lineWidth: 100 } }
         })
-        const c = await loadVialConfig({}, dir)
+        const c = await loadWebanvilConfig({}, dir)
         expect(c.format.lineWidth).toBe(100) // file beats extends
         expect(c.format.quoteStyle).toBe("single") // extends beats BUILTIN
         expect(c.format.indentWidth).toBe(4) // BUILTIN fills the rest
     })
 
-    it("layers a package's vial.config over the workspace-root config", async () => {
-        const root = mkdtempSync(path.join(tmpdir(), "vial-wscfg-"))
+    it("layers a package's webanvil.config over the workspace-root config", async () => {
+        const root = mkdtempSync(path.join(tmpdir(), "webanvil-wscfg-"))
         writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "root", workspaces: ["packages/*"] }))
-        writeFileSync(path.join(root, "vial.config.json"), JSON.stringify({ format: { lineWidth: 100 } }))
+        writeFileSync(path.join(root, "webanvil.config.json"), JSON.stringify({ format: { lineWidth: 100 } }))
         const pkg = path.join(root, "packages", "web")
         mkdirSync(pkg, { recursive: true })
-        writeFileSync(path.join(pkg, "vial.config.json"), JSON.stringify({ target: "browser" }))
-        const c = await loadVialConfig({}, pkg)
+        writeFileSync(path.join(pkg, "webanvil.config.json"), JSON.stringify({ target: "browser" }))
+        const c = await loadWebanvilConfig({}, pkg)
         expect(c.target).toBe("browser") // package wins
         expect(c.format.lineWidth).toBe(100) // inherited from the workspace root
         expect(c.format.indentWidth).toBe(4) // BUILTIN fills the rest
     })
 
     it("inherits the workspace-root config when a package has none", async () => {
-        const root = mkdtempSync(path.join(tmpdir(), "vial-wscfg-"))
+        const root = mkdtempSync(path.join(tmpdir(), "webanvil-wscfg-"))
         writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "root", workspaces: ["packages/*"] }))
-        writeFileSync(path.join(root, "vial.config.json"), JSON.stringify({ target: "node" }))
+        writeFileSync(path.join(root, "webanvil.config.json"), JSON.stringify({ target: "node" }))
         const pkg = path.join(root, "packages", "api")
         mkdirSync(pkg, { recursive: true })
-        const c = await loadVialConfig({}, pkg)
+        const c = await loadWebanvilConfig({}, pkg)
         expect(c.target).toBe("node")
     })
 
     it("merges the dev server section over BUILTIN", async () => {
-        const dir = project({ "vial.config.json": { dev: { port: 4000 } } })
-        const c = await loadVialConfig({}, dir)
+        const dir = project({ "webanvil.config.json": { dev: { port: 4000 } } })
+        const c = await loadWebanvilConfig({}, dir)
         expect(c.dev.port).toBe(4000) // from the file
         expect(c.dev.host).toBe("localhost") // still BUILTIN
     })
 
     it("lets explicit overrides win over the file", async () => {
-        const dir = project({ "vial.config.json": { build: { outDir: "lib" } } })
-        const c = await loadVialConfig({ build: { outDir: "cli" } }, dir)
+        const dir = project({ "webanvil.config.json": { build: { outDir: "lib" } } })
+        const c = await loadWebanvilConfig({ build: { outDir: "cli" } }, dir)
         expect(c.build.outDir).toBe("cli")
     })
 
     it("does not mutate BUILTIN across loads", async () => {
-        await loadVialConfig({}, project({ "vial.config.json": { build: { outDir: "lib" } } }))
+        await loadWebanvilConfig({}, project({ "webanvil.config.json": { build: { outDir: "lib" } } }))
         expect(BUILTIN.build.outDir).toBe("dist")
     })
 })
 
-describe("hasVialConfig", () => {
-    it("is false without a vial.config file", () => {
-        expect(hasVialConfig(project())).toBe(false)
+describe("hasWebanvilConfig", () => {
+    it("is false without a webanvil.config file", () => {
+        expect(hasWebanvilConfig(project())).toBe(false)
     })
 
-    it("is true when a vial.config file is present", () => {
-        expect(hasVialConfig(project({ "vial.config.json": {} }))).toBe(true)
+    it("is true when a webanvil.config file is present", () => {
+        expect(hasWebanvilConfig(project({ "webanvil.config.json": {} }))).toBe(true)
     })
 })
 
 describe("validation", () => {
     it("hard-fails on a wrong-typed field", async () => {
-        const dir = project({ "vial.config.json": { format: { lineWidth: "wide" } } })
-        await expect(loadVialConfig({}, dir)).rejects.toThrow(/invalid vial.config/)
+        const dir = project({ "webanvil.config.json": { format: { lineWidth: "wide" } } })
+        await expect(loadWebanvilConfig({}, dir)).rejects.toThrow(/invalid webanvil.config/)
     })
 
     it("hard-fails on an unknown top-level key (a mistyped section)", async () => {
-        const dir = project({ "vial.config.json": { formatter: { lineWidth: 80 } } })
-        await expect(loadVialConfig({}, dir)).rejects.toThrow(/invalid vial.config/)
+        const dir = project({ "webanvil.config.json": { formatter: { lineWidth: 80 } } })
+        await expect(loadWebanvilConfig({}, dir)).rejects.toThrow(/invalid webanvil.config/)
     })
 
     it("accepts a valid config", async () => {
-        const dir = project({ "vial.config.json": { format: { lineWidth: 80 }, target: "node" } })
-        await expect(loadVialConfig({}, dir)).resolves.toMatchObject({ target: "node" })
+        const dir = project({ "webanvil.config.json": { format: { lineWidth: 80 }, target: "node" } })
+        await expect(loadWebanvilConfig({}, dir)).resolves.toMatchObject({ target: "node" })
     })
 
-    it("accepts a $schema key so a scaffolded vial.config.json is not rejected as unknown", async () => {
-        const dir = project({ "vial.config.json": { $schema: "./vial.schema.json", target: "node" } })
-        await expect(loadVialConfig({}, dir)).resolves.toMatchObject({ target: "node" })
+    it("accepts a $schema key so a scaffolded webanvil.config.json is not rejected as unknown", async () => {
+        const dir = project({ "webanvil.config.json": { $schema: "./webanvil.schema.json", target: "node" } })
+        await expect(loadWebanvilConfig({}, dir)).resolves.toMatchObject({ target: "node" })
     })
 })
 
