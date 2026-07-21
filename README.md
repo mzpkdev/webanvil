@@ -1,10 +1,10 @@
 # Webanvil
 
-The conventional toolchain for modern Node.js projects.
+One development and CI contract for Vite apps, TypeScript libraries, and workspaces.
 
-Webanvil gives applications, libraries, and workspaces one predictable way to develop, test, check, and build. It turns the tools Node developers already trust—Vite, Vitest, unbuild, TypeScript, Biome, and Turborepo—into a workflow that works out of the box and remains customizable when a project needs it.
+As a codebase grows, its projects tend to drift. Scripts acquire different names, tool versions and defaults diverge, and every repository develops its own idea of how to build, test, type-check, and format. The tools still work; the shared development contract disappears.
 
-Start with sensible defaults. Keep native tool configuration where it already exists. Adopt one command at a time or use the same workflow across an entire organization.
+Webanvil packages that contract into one toolchain dependency and one CLI. It combines Vite, Vitest, unbuild, TypeScript, Biome, and Turborepo behind sensible defaults, layered configuration, and the same lifecycle from a single package to a workspace. Teams get a repeatable path for local development and CI without hiding the native tools underneath.
 
 ```sh
 webanvil init
@@ -16,50 +16,31 @@ webanvil format --check
 webanvil build
 ```
 
-## The value is the convention
+## More than shared script names
 
-A typical Node project does not lack capable tools. It lacks a shared way to use them. Every repository chooses its own scripts, configuration layout, defaults, and release checks; developers have to rediscover the workflow whenever they move between projects.
+`package.json` aliases can standardize what a command is called. Webanvil also standardizes what the command does:
 
-Webanvil makes that workflow a convention:
+- **Defaults that run immediately.** Start an app, test a package, or check a codebase without first assembling several configuration files.
+- **Policy that can be shared.** Put build, test, TypeScript, formatting, linting, and workspace defaults in `webanvil.config`, then layer project and package overrides on top.
+- **Less configuration drift.** Apps and libraries use the same command surface and can inherit the same preset instead of maintaining parallel toolchain setup.
+- **Gradual adoption.** Native tool configuration can replace Webanvil-generated configuration where supported. Adopt one Webanvil command without converting the rest of the project.
+- **Native escape hatches.** Pass arguments through to the underlying tool, select an explicit native config, or invoke the tool directly when a project needs its full interface.
+- **Continuity at workspace scale.** Carry the same workflow into a monorepo, where Turborepo adds dependency ordering and caching for package scripts.
 
-- **One familiar command surface.** Start, build, test, type-check, lint, format, preview, and clean any project with the same vocabulary.
-- **Useful from the first command.** Sensible defaults let a new project run without first assembling a stack of configuration files.
-- **Easy to adopt in existing projects.** Native Vite, Vitest, unbuild, and Biome configuration continues to work, so adoption does not require a rewrite.
-- **A repeatable quality gate.** The same checks run locally and in CI without every repository inventing its own scripts.
-- **One convention from package to workspace.** Use it for an application or library, then carry the same workflow into a monorepo with dependency ordering and caching.
-- **An escape hatch, not a ceiling.** Use `webanvil.config` for shared policy, command flags for one-off changes, and native configuration for tool-specific control.
+Webanvil fits best when a team maintains several projects that should feel alike: a family of applications, a set of TypeScript packages, or a workspace containing both. It provides a maintained convention without requiring every project to become identical.
 
-Webanvil does not replace its underlying tools with proprietary equivalents. It provides the stable interface between your project and those tools, so teams spend less time maintaining setup and more time working on the project itself.
+## Adopt it at your own pace
 
-## Commands
+Webanvil works without a config file. Run a command to use its built-in defaults, or scaffold a starting point:
 
-| Command | What it does |
-| --- | --- |
-| `webanvil init` | Scaffold `webanvil.config`, `tsconfig.json`, and `.gitignore`. Use `--ts` for a typed config. |
-| `webanvil dev [root]` | Start a Vite development server with hot reload. `serve` is an alias. |
-| `webanvil build [entry]` | Build an app or library. Use `--watch` to rebuild on changes. |
-| `webanvil bundle <entry>` | Bundle an entry point into one file with Vite. |
-| `webanvil preview [dir]` | Serve a production build locally. |
-| `webanvil test [patterns]` | Run Vitest. |
-| `webanvil typecheck` | Type-check without emitting files. |
-| `webanvil lint [paths]` | Check code and style with Biome. |
-| `webanvil format [paths]` | Format code and prose with Biome. |
-| `webanvil run <task>` | Run a workspace task through Turborepo. |
-| `webanvil clean` | Remove build artifacts and tool caches. `--deep` also removes `node_modules`. |
+```sh
+webanvil init        # webanvil.config.json, tsconfig.json, and .gitignore
+webanvil init --ts   # use a typed webanvil.config.ts instead
+```
 
-Arguments after `--` pass through to the underlying tool.
+Existing files are not overwritten unless `--force` is supplied.
 
-## Keep the codebase clean
-
-`webanvil format` writes consistent formatting across code and prose. Use `webanvil format --check` in CI to report files that need formatting without changing them.
-
-`webanvil lint` finds lint and style issues. It reports by default; add `--fix` to apply safe fixes. Both commands accept paths, so `webanvil lint src` and `webanvil format README.md` stay scoped to the files you are working on.
-
-Both commands use a project's `biome.json` or `biome.jsonc` when present. Without one, they use the `format` and `lint` settings in `webanvil.config`, falling back to Webanvil's defaults.
-
-## Project configuration
-
-Webanvil runs with no config. Add `webanvil.config.json`, or a `.ts` or `.js` variant, when the project needs shared settings:
+Add `webanvil.config.json`, or a `.ts` or `.js` variant, when the project needs explicit policy:
 
 ```json
 {
@@ -72,21 +53,25 @@ Webanvil runs with no config. Add `webanvil.config.json`, or a `.ts` or `.js` va
 }
 ```
 
-Settings resolve in this order: explicit command flags, the nearest `webanvil.config`, its `extends` layers, then Webanvil's defaults. `extends` also supports remote GitHub presets such as `github:org/preset#ref`; JSON presets are data only and do not execute code.
+Configuration resolves from workspace to package: package `webanvil.config` values override workspace values, each config may extend local or remote presets, and Webanvil's built-ins fill any remaining settings. `extends` accepts local layers and remote GitHub presets such as `github:org/preset#ref`; JSON presets are data only and do not execute code. When Webanvil generates a native tool config, Webanvil CLI flags override these resolved settings.
 
-Webanvil detects native `vite.config.*`, `vitest.config.*`, `build.config.*`, and `biome.json` files. When found, that tool uses its native config, so a project can adopt Webanvil without giving up existing setup.
+For Vite, Vitest, unbuild, and Biome, a detected native `vite.config.*`, `vitest.config.*`, `build.config.*`, `biome.json`, or `biome.jsonc` replaces Webanvil's generated config for that tool. An explicit `--config` selects a native config instead. TypeScript is different: an existing `tsconfig.json` is used automatically only when there is no local `webanvil.config`; use `--config` to select one explicitly. Arguments after `--` provide one-off native overrides directly to the underlying tool:
+
+```sh
+webanvil test -- --reporter=verbose
+webanvil dev -- --open
+```
+
+This lets a project share the common path while keeping tool-specific configuration and direct tool usage available.
 
 ## Apps, libraries, and workspaces
 
 ### Apps
 
-Put `index.html` at the project root and Webanvil treats the project as an app. It runs Vite for development and production builds, and uses the matching Vite plugin when React, Vue, Svelte, Solid, or Preact and its plugin are already installed.
+Put `index.html` at the project root and Webanvil treats the project as an app. Development and production builds run through Vite. When React, Vue, Svelte, Solid, or Preact and its Vite plugin are already installed, Webanvil uses the matching plugin.
 
 ```sh
-# Develop Cosmic Canteen with hot reload.
 webanvil dev
-
-# Check the menu logic, then build and inspect the production site.
 webanvil test src/menu.test.ts
 webanvil build
 webanvil preview
@@ -94,19 +79,20 @@ webanvil preview
 
 ### Libraries
 
-Point Webanvil at the library's public entry point. It compiles the library with unbuild, while the same CLI handles type checks, linting, and formatting around the build.
+Give `build` a public entry point and Webanvil compiles the library with unbuild. The surrounding development contract stays the same as it is for an app.
 
 ```sh
-# Prepare Glitter Parcel for publication.
 webanvil typecheck
 webanvil lint src
 webanvil format --check
 webanvil build src/index.ts
 ```
 
+Use `webanvil bundle <entry>` when the output should be a single file instead.
+
 ### Workspaces
 
-A workspace can contain applications, libraries, and shared packages. Define a pipeline once, then Webanvil gives the whole repository one command surface.
+A workspace can combine applications, libraries, and shared packages. Define the task pipeline in the root `webanvil.config`:
 
 ```json
 {
@@ -117,9 +103,7 @@ A workspace can contain applications, libraries, and shared packages. Define a p
 }
 ```
 
-`webanvil run` sends packages with matching scripts through Turborepo in dependency order, with caching. For scriptless packages, it still runs Webanvil's direct `test`, `typecheck`, `lint`, `format`, and `clean` commands.
-
-For example, a package can declare its own build and test scripts:
+`webanvil run` sends matching package scripts through Turborepo with dependency ordering and caching. For packages without a matching script, it can directly run Webanvil's argument-free `test`, `typecheck`, `lint`, `format`, and `clean` commands. These scriptless fallback runs are a convenience outside Turborepo's cache and dependency graph.
 
 ```json
 { "scripts": { "build": "webanvil build", "test": "webanvil test" } }
@@ -130,3 +114,19 @@ webanvil run build
 webanvil run test --filter cosmic-canteen
 webanvil run lint
 ```
+
+## Command reference
+
+| Command | What it does |
+| --- | --- |
+| `webanvil init` | Scaffold `webanvil.config`, `tsconfig.json`, and `.gitignore`. Use `--ts` for a typed config. |
+| `webanvil dev [root]` | Start a Vite development server with hot reload. `serve` is an alias. |
+| `webanvil build [entry]` | Build an app or compile a library entry. Use `--watch` to rebuild on changes. |
+| `webanvil bundle <entry>` | Bundle an entry point into one file with Vite. |
+| `webanvil preview [dir]` | Serve a production build locally. |
+| `webanvil test [patterns]` | Run Vitest. |
+| `webanvil typecheck` | Type-check without emitting files. |
+| `webanvil lint [paths]` | Check code and style with Biome. Add `--fix` to apply safe fixes. |
+| `webanvil format [paths]` | Format code and prose with Biome. Add `--check` to report differences without writing. |
+| `webanvil run <task>` | Run matching package scripts through Turborepo; scriptless fallback checks run outside its cache and dependency graph. |
+| `webanvil clean` | Remove build artifacts and tool caches. `--deep` also removes `node_modules`. |
