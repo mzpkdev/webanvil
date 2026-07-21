@@ -70,11 +70,35 @@ Webanvil detects native `vite.config.*`, `vitest.config.*`, `build.config.*`, an
 
 ## Apps, libraries, and workspaces
 
-For an app, put `index.html` at the project root and run `webanvil dev` or `webanvil build`. Webanvil uses Vite, detects React, Vue, Svelte, Solid, or Preact from project dependencies, and uses the matching installed Vite plugin.
+### Apps
 
-For a library, run `webanvil build src/index.ts`; Webanvil compiles it with unbuild. Use `webanvil preview` after an app build to serve the resulting output.
+Put `index.html` at the project root and Webanvil treats the project as an app. It runs Vite for development and production builds, and uses the matching Vite plugin when React, Vue, Svelte, Solid, or Preact and its plugin are already installed.
 
-For a workspace, define the task pipeline in `webanvil.config` and run it across packages:
+```sh
+# Develop Cosmic Canteen with hot reload.
+webanvil dev
+
+# Check the menu logic, then build and inspect the production site.
+webanvil test src/menu.test.ts
+webanvil build
+webanvil preview
+```
+
+### Libraries
+
+Point Webanvil at the library's public entry point. It compiles the library with unbuild, while the same CLI handles type checks, linting, and formatting around the build.
+
+```sh
+# Prepare Glitter Parcel for publication.
+webanvil typecheck
+webanvil lint src
+webanvil format --check
+webanvil build src/index.ts
+```
+
+### Workspaces
+
+A workspace can contain applications, libraries, and shared packages. Define a pipeline once, then Webanvil gives the whole repository one command surface.
 
 ```json
 {
@@ -85,7 +109,16 @@ For a workspace, define the task pipeline in `webanvil.config` and run it across
 }
 ```
 
+`webanvil run` sends packages with matching scripts through Turborepo in dependency order, with caching. For scriptless packages, it still runs Webanvil's direct `test`, `typecheck`, `lint`, `format`, and `clean` commands.
+
+For example, a package can declare its own build and test scripts:
+
+```json
+{ "scripts": { "build": "webanvil build", "test": "webanvil test" } }
+```
+
 ```sh
 webanvil run build
-webanvil run test --filter @acme/ui
+webanvil run test --filter cosmic-canteen
+webanvil run lint
 ```
