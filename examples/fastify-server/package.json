@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "wa build",
+    "dev": "wa dev",
     "start": "node dist/server.js",
     "test": "wa test"
   },

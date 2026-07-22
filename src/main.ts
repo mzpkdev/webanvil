@@ -3,13 +3,13 @@ import { fileURLToPath } from "node:url"
 import { execute } from "cmdore"
 import { readPackageJSON } from "pkg-types"
 
-import { buildCommand, testCommand } from "./commands/index"
+import { buildCommand, devCommand, testCommand } from "./commands/index"
 import { logger } from "./tools"
 
 export const main = async (...varargs: string[]): Promise<number> => {
     const packageJson = await readPackageJSON(fileURLToPath(new URL("..", import.meta.url)))
 
-    return execute([buildCommand, testCommand], {
+    return execute([buildCommand, devCommand, testCommand], {
         argv: varargs,
         metadata: {
             name: packageJson.name ?? "webanvil",
