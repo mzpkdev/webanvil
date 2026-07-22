@@ -3,6 +3,7 @@ export default {
         arrowParens: "always",
         bracketSameLine: false,
         bracketSpacing: true,
+        ignorePatterns: ["**/node_modules", "**/.runtime", "**/experiments", "bun.lock"],
         jsxSingleQuote: false,
         printWidth: 120,
         quoteProps: "as-needed",
@@ -11,15 +12,5 @@ export default {
         tabWidth: 4,
         trailingComma: "none",
         useTabs: false
-    },
-    lint: { rules: { "no-console": "deny" } },
-    build: {
-        mode: "web",
-        entry: "index.html",
-        outDir: "dist"
-    },
-    test: {
-        environment: "jsdom",
-        include: ["test/**/*.test.ts"]
     }
 }

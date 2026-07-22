@@ -6,18 +6,19 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 
 ## Current stack
 
-| Concern | Tool |
-|---|---|
-| Web builds | Vite |
-| Node builds | Rolldown |
-| Testing | Vitest |
-| Linting and formatting | Biome |
-| Type checking | typescript-native |
-| Config loading | c12 + defu |
-| Config validation | Zod v4 |
-| Package discovery | pkg-types |
-| CLI framework | cmdore |
-| CLI logging | consola |
+| Concern           | Tool              |
+| ----------------- | ----------------- |
+| Web builds        | Vite              |
+| Node builds       | Rolldown          |
+| Testing           | Vitest            |
+| Linting           | Oxlint            |
+| Formatting        | Oxfmt             |
+| Type checking     | typescript-native |
+| Config loading    | c12 + defu        |
+| Config validation | Zod v4            |
+| Package discovery | pkg-types         |
+| CLI framework     | cmdore            |
+| CLI logging       | consola           |
 
 ## Commands
 
@@ -28,6 +29,8 @@ build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web or Node project
 dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>]
                                                      start a Vite server or Rolldown watcher
 test [filters...] [--environment <environment>]       run Vitest
+lint [paths...] [--fix]                                lint with Oxlint
+format [paths...] [--check]                            format with Oxfmt
 ```
 
 `webanvil` and `wa` are equivalent package binaries.
@@ -50,7 +53,16 @@ export default defineConfig({
 })
 ```
 
-`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in defaults, then validates the root, `build`, and `test` objects with strict Zod schemas. Defined CLI values override config values.
+`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in defaults, then validates the root, `build`, `format`, `lint`, and `test` objects. Defined CLI values override config values.
+
+```ts
+export default defineConfig({
+    format: { printWidth: 120, singleQuote: false, tabWidth: 4 },
+    lint: { rules: { "no-console": "deny" } }
+})
+```
+
+The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectively. WebAnvil passes them to the underlying tool, so `.oxfmtrc.json` and `.oxlintrc.json` are not needed. When present, `.oxfmtrc.json`, `.oxlintrc.json`, `vite.config.*`, and `vitest.config.*` take precedence over their WebAnvil equivalents.
 
 ## CLI and config policy
 
@@ -87,7 +99,7 @@ src/
   main.ts          parse argv, delegate to cmdore
   config.ts        UserConfig, ResolvedConfig, loadConfig()
   tools.ts         shared consola logger
-  commands/        build and test commands
+  commands/        build, dev, test, lint, and format commands
   arguments/       positional command arguments
   options/         shared command options
 ```

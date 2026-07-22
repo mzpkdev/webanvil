@@ -1,12 +1,12 @@
-import { defineBuildConfig } from 'obuild/config'
+import { defineBuildConfig } from "obuild/config"
 
 export default defineBuildConfig({
-  entries: [
-    {
-      type: 'bundle',
-      input: ['./src/index.ts', './src/cli.ts'],
-      outDir: './dist',
-      dts: false,
-    },
-  ],
+    entries: [
+        {
+            type: "bundle",
+            input: ["./src/index.ts", "./src/cli.ts"],
+            outDir: "./dist",
+            dts: false
+        }
+    ]
 })

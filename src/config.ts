@@ -1,5 +1,7 @@
 import { loadConfig as loadC12Config } from "c12"
 import { defu } from "defu"
+import type { OxfmtConfig } from "oxfmt"
+import type { OxlintConfig } from "oxlint"
 import { z } from "zod"
 
 export const buildConfigSchema = z.strictObject({
@@ -21,13 +23,25 @@ export const testConfigSchema = z.strictObject({
     include: z.array(z.string().min(1)).min(1).optional()
 })
 
+const toolConfigSchema = z.custom<Record<string, unknown>>(
+    (value) => typeof value === "object" && value !== null && !Array.isArray(value),
+    "Expected a configuration object"
+)
+
+export const formatConfigSchema = toolConfigSchema
+export const lintConfigSchema = toolConfigSchema
+
 export const userConfigSchema = z.strictObject({
     build: buildConfigSchema.optional(),
+    format: formatConfigSchema.optional(),
+    lint: lintConfigSchema.optional(),
     test: testConfigSchema.optional(),
     plugins: z.array(z.unknown()).optional()
 })
 
 export type BuildConfig = z.infer<typeof buildConfigSchema>
+export type FormatConfig = OxfmtConfig
+export type LintConfig = OxlintConfig
 export type TestConfig = z.infer<typeof testConfigSchema>
 export type UserConfig = z.infer<typeof userConfigSchema>
 export type UserConfigFactory = () => UserConfig | Promise<UserConfig>
@@ -39,7 +53,7 @@ export type ResolvedConfig = {
 }
 
 type CommandArguments = Record<string, unknown>
-type ConfigSection = BuildConfig | TestConfig
+type ConfigSection = BuildConfig | FormatConfig | LintConfig | TestConfig
 type ResolvedArguments<TArguments extends CommandArguments> = {
     [TKey in keyof TArguments]-?: Exclude<TArguments[TKey], undefined>
 }

@@ -50,10 +50,29 @@ describe("build", () => {
             await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
             process.chdir(directory)
 
-            await build("web", "index.html", "dist", { minify: false, sourcemap: true, target: "browser" })
+            await build("web", "index.html", "dist", {
+                minify: false,
+                sourcemap: true,
+                target: "browser"
+            })
 
             const assets = await readdir(join(directory, "dist", "assets"))
             expect(assets).toContainEqual(expect.stringMatching(/\.js\.map$/))
+        })
+    })
+
+    context("with a Vite config file", () => {
+        it("uses the Vite build settings before WebAnvil settings", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "vite.config.ts"), 'export default { build: { outDir: "vite-dist" } }')
+            process.chdir(directory)
+
+            await build("web", "missing.html", "webanvil-dist")
+
+            await expect(access(join(directory, "vite-dist", "index.html"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "webanvil-dist"))).rejects.toThrow()
         })
     })
 })

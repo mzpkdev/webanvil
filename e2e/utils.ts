@@ -27,6 +27,14 @@ export const testExample = async (example: string): Promise<void> => {
     await runNpm(example, "run", "test")
 }
 
+export const lintExample = async (example: string): Promise<void> => {
+    await runNpm(example, "run", "lint")
+}
+
+export const checkExampleFormatting = async (example: string): Promise<void> => {
+    await runNpm(example, "run", "format:check")
+}
+
 export const buildExample = async (example: string): Promise<string> => {
     const output = join(example, "dist")
 
@@ -37,7 +45,10 @@ export const buildExample = async (example: string): Promise<string> => {
 
 export const startExample = (example: string, ...args: string[]): DevProcess => {
     let output = ""
-    const child = spawn(npm, ["run", "dev", "--", ...args], { cwd: example, stdio: ["ignore", "pipe", "pipe"] })
+    const child = spawn(npm, ["run", "dev", "--", ...args], {
+        cwd: example,
+        stdio: ["ignore", "pipe", "pipe"]
+    })
     const collect = (data: Buffer): void => {
         output += data.toString()
     }

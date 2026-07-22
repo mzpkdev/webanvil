@@ -1,19 +1,22 @@
 {
-  "name": "webanvil-example-wc-spa",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "wa build",
-    "dev": "wa dev",
-    "test": "wa test"
-  },
-  "dependencies": {
-    "lit": "^3.3.3"
-  },
-  "devDependencies": {
-    "jsdom": "^29.1.1",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10",
-    "webanvil": "file:../.."
-  }
+    "name": "webanvil-example-wc-spa",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wa build",
+        "dev": "wa dev",
+        "format": "wa format",
+        "format:check": "wa format --check",
+        "lint": "wa lint",
+        "test": "wa test"
+    },
+    "dependencies": {
+        "lit": "^3.3.3"
+    },
+    "devDependencies": {
+        "jsdom": "^29.1.1",
+        "typescript": "^7.0.2",
+        "vitest": "^4.1.10",
+        "webanvil": "file:../.."
+    }
 }

@@ -5,8 +5,10 @@ import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
 import {
     buildExample,
+    checkExampleFormatting,
     examplePath,
     installExample,
+    lintExample,
     startExample,
     stopExample,
     testExample,
@@ -20,6 +22,14 @@ describe("fastify-server", () => {
     context("when WebAnvil and the example dependencies are installed", () => {
         beforeAll(async () => {
             await installExample(example)
+        }, 60_000)
+
+        it("lints the example with wa", async () => {
+            await lintExample(example)
+        }, 60_000)
+
+        it("checks the example formatting with wa", async () => {
+            await checkExampleFormatting(example)
         }, 60_000)
 
         it("runs the example test suite", async () => {

@@ -1,20 +1,23 @@
 {
-  "name": "webanvil-example-fastify-server",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "wa build",
-    "dev": "wa dev",
-    "start": "node dist/server.js",
-    "test": "wa test"
-  },
-  "dependencies": {
-    "fastify": "^5.10.0"
-  },
-  "devDependencies": {
-    "@types/node": "^26.1.1",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10",
-    "webanvil": "file:../.."
-  }
+    "name": "webanvil-example-fastify-server",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wa build",
+        "dev": "wa dev",
+        "format": "wa format",
+        "format:check": "wa format --check",
+        "lint": "wa lint",
+        "start": "node dist/server.js",
+        "test": "wa test"
+    },
+    "dependencies": {
+        "fastify": "^5.10.0"
+    },
+    "devDependencies": {
+        "@types/node": "^26.1.1",
+        "typescript": "^7.0.2",
+        "vitest": "^4.1.10",
+        "webanvil": "file:../.."
+    }
 }

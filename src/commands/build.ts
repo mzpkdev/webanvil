@@ -6,6 +6,7 @@ import { isolatedDeclarationPlugin } from "rolldown/experimental"
 import { type PluginOption, build as vite } from "vite"
 
 import { entry } from "../arguments"
+import { hasToolConfig } from "../config-files"
 import { type BuildConfig, withConfig } from "../config"
 import { declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
 import { logger } from "../tools"
@@ -28,6 +29,11 @@ export const build = async (
 }
 
 build.web = async (entry: string, outDir: string, options: BuildOptions, plugins: unknown[]): Promise<void> => {
+    if (await hasToolConfig("vite")) {
+        await vite({ root: process.cwd() })
+        return
+    }
+
     if (options.declaration) throw new Error("Declarations are only supported for Node builds")
     if (options.formats?.some((format) => format !== "esm")) {
         throw new Error("Web builds only support the esm format")

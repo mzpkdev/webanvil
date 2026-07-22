@@ -2,17 +2,18 @@ import { defineCommand } from "cmdore"
 import { startVitest } from "vitest/node"
 
 import { filters } from "../arguments"
+import { hasToolConfig } from "../config-files"
 import { withConfig } from "../config"
 import { environment } from "../options"
 import { logger } from "../tools"
 
 export const test = async (filters: string[], environment: string, include?: string[]): Promise<void> => {
     logger.start("Running tests")
+    const hasVitestConfig = await hasToolConfig("vitest")
     const vitest = await startVitest("test", filters, {
         passWithNoTests: true,
         run: true,
-        environment,
-        ...(include === undefined ? {} : { include })
+        ...(hasVitestConfig ? {} : { environment, ...(include === undefined ? {} : { include }) })
     })
     const failed =
         vitest.state.getFiles().some((file) => file.result?.state === "fail") ||

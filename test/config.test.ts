@@ -36,7 +36,6 @@ describe("defineConfig", () => {
             expect(config()).toEqual({ build: { outDir: "output" } })
         })
     })
-
 })
 
 describe("loadConfig", () => {
@@ -45,7 +44,7 @@ describe("loadConfig", () => {
             const directory = await createDirectory()
             await writeFile(
                 join(directory, "webanvil.config.ts"),
-                'export default { build: { outDir: "output", declaration: true, sourcemap: true, minify: false, formats: ["esm", "cjs"], target: "node20" }, test: { environment: "jsdom", include: ["test/**/*.test.ts"] } }'
+                'export default { build: { outDir: "output", declaration: true, sourcemap: true, minify: false, formats: ["esm", "cjs"], target: "node20" }, format: { tabWidth: 4 }, lint: { rules: { "no-console": "deny" } }, test: { environment: "jsdom", include: ["test/**/*.test.ts"] } }'
             )
 
             await expect(loadConfig(directory)).resolves.toMatchObject({
@@ -60,6 +59,8 @@ describe("loadConfig", () => {
                         formats: ["esm", "cjs"],
                         target: "node20"
                     },
+                    format: { tabWidth: 4 },
+                    lint: { rules: { "no-console": "deny" } },
                     test: { environment: "jsdom", include: ["test/**/*.test.ts"] }
                 },
                 configFile: join(directory, "webanvil.config.ts")
@@ -87,7 +88,10 @@ describe("loadConfig", () => {
     context("with a config factory", () => {
         it("resolves the returned config", async () => {
             const directory = await createDirectory()
-            await writeFile(join(directory, "webanvil.config.ts"), 'export default () => ({ build: { outDir: "output" } })')
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default () => ({ build: { outDir: "output" } })'
+            )
 
             await expect(loadConfig(directory)).resolves.toMatchObject({
                 config: { build: { outDir: "output" } }
@@ -136,14 +140,18 @@ describe("withConfig", () => {
             async (arguments_: { entry?: string; "out-dir"?: string }) => arguments_
         )
 
-        await expect(run({})).resolves.toEqual({ mode: "node", entry: "src/index.ts", "out-dir": "dist" })
+        await expect(run({})).resolves.toEqual({
+            mode: "node",
+            entry: "src/index.ts",
+            "out-dir": "dist"
+        })
     })
 
     it("uses build config for missing command inputs and gives CLI inputs precedence", async () => {
         const directory = await createDirectory()
-            await writeFile(
-                join(directory, "webanvil.config.ts"),
-                'export default { build: { mode: "web", entry: "src/config.ts", outDir: "configured-dist", sourcemap: true, minify: false, formats: ["esm"], target: "browser" } }'
+        await writeFile(
+            join(directory, "webanvil.config.ts"),
+            'export default { build: { mode: "web", entry: "src/config.ts", outDir: "configured-dist", sourcemap: true, minify: false, formats: ["esm"], target: "browser" } }'
         )
         process.chdir(directory)
 

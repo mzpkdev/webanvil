@@ -3,7 +3,7 @@ import { join } from "node:path"
 
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
-import { buildExample, examplePath, installExample } from "./utils"
+import { buildExample, checkExampleFormatting, examplePath, installExample, lintExample } from "./utils"
 
 const example = examplePath("react-spa")
 
@@ -11,6 +11,14 @@ describe("react-spa", () => {
     context("when WebAnvil and the example dependencies are installed", () => {
         beforeAll(async () => {
             await installExample(example)
+        }, 60_000)
+
+        it("lints the example with wa", async () => {
+            await lintExample(example)
+        }, 60_000)
+
+        it("checks the example formatting with wa", async () => {
+            await checkExampleFormatting(example)
         }, 60_000)
 
         it("builds a JSX entry with wa", async () => {

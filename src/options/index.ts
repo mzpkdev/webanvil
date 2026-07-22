@@ -1,6 +1,8 @@
+export { check } from "./check"
 export { declaration } from "./declaration"
 export { environment } from "./environment"
 export { formats } from "./formats"
+export { fix } from "./fix"
 export { host } from "./host"
 export { minify } from "./minify"
 export { mode } from "./mode"

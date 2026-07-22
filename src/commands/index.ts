@@ -1,3 +1,5 @@
 export { build, default as buildCommand } from "./build"
 export { default as devCommand, dev } from "./dev"
+export { default as formatCommand, format } from "./format"
+export { default as lintCommand, lint } from "./lint"
 export { default as testCommand, test } from "./test"

@@ -1,18 +1,21 @@
 {
-  "name": "webanvil-example-react-spa",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "wa build"
-  },
-  "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "webanvil": "file:../.."
-  },
-  "devDependencies": {
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.4"
-  }
+    "name": "webanvil-example-react-spa",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wa build",
+        "format": "wa format",
+        "format:check": "wa format --check",
+        "lint": "wa lint"
+    },
+    "dependencies": {
+        "react": "^19.2.8",
+        "react-dom": "^19.2.8",
+        "webanvil": "file:../.."
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.17",
+        "@types/react-dom": "^19.2.3",
+        "@vitejs/plugin-react": "^6.0.4"
+    }
 }
