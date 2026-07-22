@@ -1,10 +1,11 @@
 import { resolve } from "node:path"
 
 import { defineCommand } from "cmdore"
-import { watch } from "rolldown"
-import { createServer } from "vite"
+import { type Plugin as RolldownPlugin, watch } from "rolldown"
+import { type PluginOption, createServer } from "vite"
 
 import { entry } from "../arguments"
+import { hasToolConfig } from "../config-files"
 import { withConfig } from "../config"
 import { host, mode, outDir, port } from "../options"
 import { logger } from "../tools"
@@ -26,7 +27,8 @@ export const dev = async (
     entry: string,
     outDir: string,
     host?: string,
-    port?: number
+    port?: number,
+    plugins: unknown[] = []
 ): Promise<void> => {
     logger.start(`Starting ${mode} development mode`)
 
@@ -34,13 +36,14 @@ export const dev = async (
         throw new Error("--host and --port are only available in web development mode")
     }
 
-    if (mode === "web") await dev.web(host, port)
-    else await dev.node(entry, outDir)
+    if (mode === "web") await dev.web(host, port, plugins)
+    else await dev.node(entry, outDir, plugins)
 }
 
-dev.web = async (host?: string, port?: number): Promise<void> => {
+dev.web = async (host?: string, port?: number, plugins: unknown[] = []): Promise<void> => {
     const server = await createServer({
         root: process.cwd(),
+        plugins: (await hasToolConfig("vite")) ? [] : (plugins as PluginOption[]),
         server: { host, port }
     })
 
@@ -53,12 +56,17 @@ dev.web = async (host?: string, port?: number): Promise<void> => {
     }
 }
 
-dev.node = async (entry: string, outDir: string): Promise<void> => {
+dev.node = async (
+    entry: string,
+    outDir: string,
+    plugins: unknown[] = [],
+    waitForTermination: () => Promise<void> = untilTerminated
+): Promise<void> => {
     const watcher = watch({
         input: resolve(process.cwd(), entry),
+        plugins: plugins as RolldownPlugin[],
         external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/")),
-        output: { dir: resolve(process.cwd(), outDir), format: "es" },
-        experimental: { incrementalBuild: true }
+        output: { dir: resolve(process.cwd(), outDir), format: "es" }
     })
 
     watcher.on("event", async (event) => {
@@ -74,7 +82,7 @@ dev.node = async (entry: string, outDir: string): Promise<void> => {
     })
 
     try {
-        await untilTerminated()
+        await waitForTermination()
     } finally {
         await watcher.close()
     }
@@ -86,6 +94,7 @@ export default defineCommand({
     options: [mode, outDir, host, port],
     run: withConfig(
         (config) => config.build,
-        ({ mode, entry, "out-dir": outDir, host, port }) => dev(mode, entry, outDir, host, port)
+        ({ mode, entry, "out-dir": outDir, host, port }, _buildConfig, resolvedConfig) =>
+            dev(mode, entry, outDir, host, port, resolvedConfig.plugins ?? [])
     )
 })

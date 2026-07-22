@@ -82,7 +82,7 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 ## Development modes
 
-`wa dev` starts Vite's development server in web mode. `--host` and `--port` configure that server. In node mode, it watches and rebuilds the configured entry with Rolldown; it does not execute or restart the output. Process supervision, signals, stdio, and port ownership belong to the application runtime. Watch build errors are reported and leave the watcher running.
+`wa dev` starts Vite's development server in web mode. `--host` and `--port` configure that server. In node mode, it watches and rebuilds the configured entry with Rolldown; it does not execute or restart the output. Build plugins pass through to Vite or Rolldown in their matching mode. Process supervision, signals, stdio, and port ownership belong to the application runtime. Watch build errors are reported and leave the watcher running.
 
 Future config resolution will merge project config, workspace config, and built-ins through defu, then validate with Zod.
 
