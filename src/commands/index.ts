@@ -1,3 +1,2 @@
-export { default as buildCommand, build } from './build.js'
-export { default as devCommand, dev } from './dev.js'
-export { default as testCommand, test } from './test.js'
+export { build, default as buildCommand } from "./build"
+export { default as testCommand, test } from "./test"
