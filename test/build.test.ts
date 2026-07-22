@@ -1,4 +1,4 @@
-import { access, mkdtemp, readdir, rm, writeFile } from "node:fs/promises"
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -22,24 +22,60 @@ afterEach(async () => {
 
 describe("build", () => {
     context("with a Node entry", () => {
-        it("emits declarations, source maps, and configured formats", async () => {
+        it("emits a cleaned ESM file tree with rewritten relative imports", async () => {
             const directory = await createDirectory()
-            await writeFile(join(directory, "index.ts"), 'export const greeting = "hello"\n')
+            await mkdir(join(directory, "src", "lib"), { recursive: true })
+            await mkdir(join(directory, "dist"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { greeting } from "./lib/greeting"\n')
+            await writeFile(join(directory, "src", "lib", "greeting.ts"), 'export const greeting = "hello"\n')
+            await writeFile(join(directory, "dist", "stale.js"), "stale\n")
             process.chdir(directory)
 
-            await build("node", "index.ts", "dist", {
-                declaration: true,
-                formats: ["esm", "cjs"],
+            await build("node", "src/index.ts", "dist", {
                 minify: true,
                 sourcemap: true,
                 target: "node20"
             })
 
             await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
-            await expect(access(join(directory, "dist", "index.js.map"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "lib", "greeting.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "stale.js"))).rejects.toThrow()
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("./lib/greeting.js")
+        })
+    })
+
+    context("with a bundled Node entry", () => {
+        it("emits requested formats and declarations without reading package metadata", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export const greeting: string = "hello"\n')
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", {
+                bundle: true,
+                declaration: true,
+                formats: ["esm", "cjs"]
+            })
+
+            await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
             await expect(access(join(directory, "dist", "index.cjs"))).resolves.toBeUndefined()
-            await expect(access(join(directory, "dist", "index.cjs.map"))).resolves.toBeUndefined()
             await expect(access(join(directory, "dist", "index.d.ts"))).resolves.toBeUndefined()
+        })
+
+        it("uses configured entries for multiple public outputs", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const root = true\n")
+            await writeFile(join(directory, "src", "feature.ts"), "export const feature = true\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", {
+                bundle: true,
+                entries: { ".": "src/index.ts", "./feature": "src/feature.ts" }
+            })
+
+            await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "feature.js"))).resolves.toBeUndefined()
         })
     })
 
@@ -51,6 +87,9 @@ describe("build", () => {
             process.chdir(directory)
 
             await build("web", "index.html", "dist", {
+                bundle: true,
+                declaration: true,
+                formats: ["esm"],
                 minify: false,
                 sourcemap: true,
                 target: "browser"

@@ -33,7 +33,7 @@ describe("npm-lib", () => {
 
             await expect(access(join(output, "index.js"))).resolves.toBeUndefined()
             await expect(access(join(output, "index.cjs"))).resolves.toBeUndefined()
-            await expect(access(join(output, "src", "index.d.ts"))).resolves.toBeUndefined()
+            await expect(access(join(output, "index.d.ts"))).resolves.toBeUndefined()
         }, 60_000)
     })
 })

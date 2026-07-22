@@ -1,17 +1,19 @@
 import { resolve } from "node:path"
 
 import { defineCommand } from "cmdore"
-import { type Plugin as RolldownPlugin, rolldown } from "rolldown"
-import { isolatedDeclarationPlugin } from "rolldown/experimental"
 import { type PluginOption, build as vite } from "vite"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
 import { type BuildConfig, withConfig } from "../config"
-import { declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
+import { applicationInputs, sourceRoot, writeApplicationOutput, writeBundledOutput } from "../core/node-output"
+import { bundle, declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
 import { logger } from "../tools"
 
-type BuildOptions = Pick<BuildConfig, "declaration" | "formats" | "minify" | "sourcemap" | "target">
+type BuildOptions = Pick<
+    BuildConfig,
+    "bundle" | "declaration" | "entries" | "formats" | "minify" | "sourcemap" | "target"
+>
 
 export const build = async (
     mode: "web" | "node",
@@ -23,6 +25,7 @@ export const build = async (
     logger.start(`Building ${entry}`)
 
     if (mode === "web") await build.web(entry, outDir, options, plugins)
+    else if (options.bundle) await build.bundle(entry, outDir, options, plugins)
     else await build.node(entry, outDir, options, plugins)
 
     logger.success(`Built ${entry} to ${outDir}`)
@@ -34,7 +37,6 @@ build.web = async (entry: string, outDir: string, options: BuildOptions, plugins
         return
     }
 
-    if (options.declaration) throw new Error("Declarations are only supported for Node builds")
     if (options.formats?.some((format) => format !== "esm")) {
         throw new Error("Web builds only support the esm format")
     }
@@ -56,48 +58,44 @@ build.web = async (entry: string, outDir: string, options: BuildOptions, plugins
 }
 
 build.node = async (entry: string, outDir: string, options: BuildOptions, plugins: unknown[]): Promise<void> => {
-    const input = resolve(process.cwd(), entry)
-    const output = resolve(process.cwd(), outDir)
-    const nodeTarget = options.target ?? "node20"
-
-    const bundle = await rolldown({
-        input,
-        // Users select Rolldown-compatible plugins for Node builds in their config.
-        plugins: [...(plugins as RolldownPlugin[]), ...(options.declaration ? [isolatedDeclarationPlugin()] : [])],
-        platform: nodeTarget === "node20" ? "node" : nodeTarget,
-        ...(nodeTarget === "node20"
-            ? {
-                  transform: {
-                      target: nodeTarget
-                  }
-              }
-            : {}),
-        external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/"))
-    })
-    try {
-        for (const format of options.formats ?? ["esm"]) {
-            await bundle.write({
-                dir: output,
-                cleanDir: false,
-                entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
-                format: format === "esm" ? "es" : "cjs",
-                minify: options.minify,
-                sourcemap: options.sourcemap
-            })
-        }
-    } finally {
-        await bundle.close()
+    if (options.declaration) throw new Error("Declarations require --bundle")
+    if (options.formats?.some((format) => format !== "esm")) {
+        throw new Error("CommonJS output requires --bundle")
     }
+
+    await writeApplicationOutput({
+        inputs: await applicationInputs(sourceRoot(entry)),
+        minify: options.minify,
+        outDir: resolve(process.cwd(), outDir),
+        // Users select Rolldown-compatible plugins for Node builds in their config.
+        plugins: plugins as never[],
+        sourcemap: options.sourcemap,
+        target: options.target
+    })
+}
+
+build.bundle = async (entry: string, outDir: string, options: BuildOptions, plugins: unknown[]): Promise<void> => {
+    await writeBundledOutput({
+        declaration: options.declaration,
+        entry,
+        entries: options.entries,
+        formats: options.formats,
+        minify: options.minify,
+        outDir: resolve(process.cwd(), outDir),
+        plugins: plugins as never[],
+        sourcemap: options.sourcemap,
+        target: options.target
+    })
 }
 
 export default defineCommand({
     name: "build",
     arguments: [entry],
-    options: [mode, outDir, declaration, sourcemap, minify, formats, target],
+    options: [mode, outDir, bundle, declaration, sourcemap, minify, formats, target],
     run: withConfig(
         (config) => config.build,
         (
-            { declaration, formats, minify, mode, entry, "out-dir": outDir, sourcemap, target },
+            { bundle, declaration, formats, minify, mode, entry, "out-dir": outDir, sourcemap, target },
             _buildConfig,
             resolvedConfig
         ) =>
@@ -105,7 +103,15 @@ export default defineCommand({
                 mode,
                 entry,
                 outDir,
-                { declaration, formats, minify, sourcemap, target },
+                {
+                    bundle: bundle || _buildConfig.bundle,
+                    declaration,
+                    entries: _buildConfig.entries,
+                    formats,
+                    minify,
+                    sourcemap,
+                    target
+                },
                 resolvedConfig.plugins ?? []
             )
     )

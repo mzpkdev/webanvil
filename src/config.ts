@@ -5,8 +5,10 @@ import type { OxlintConfig } from "oxlint"
 import { z } from "zod"
 
 export const buildConfigSchema = z.strictObject({
+    bundle: z.boolean().optional(),
     mode: z.enum(["web", "node"]).optional(),
     entry: z.string().min(1).optional(),
+    entries: z.record(z.string().min(1), z.string().min(1)).optional(),
     outDir: z.string().min(1).optional(),
     declaration: z.boolean().optional(),
     sourcemap: z.boolean().optional(),

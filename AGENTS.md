@@ -23,9 +23,9 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 ## Commands
 
 ```
-build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web or Node project
-              [--declaration <true|false>] [--sourcemap <true|false>] [--minify <true|false>]
-              [--formats <esm,cjs>] [--target <node20|browser|neutral>]
+build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web app or Node module tree
+              [--bundle] [--declaration <true|false>] [--formats <esm,cjs>]
+              [--sourcemap <true|false>] [--minify <true|false>] [--target <node20|browser|neutral>]
 dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>]
                                                      start a Vite server or Rolldown watcher
 test [filters...] [--environment <environment>]       run Vitest
@@ -43,8 +43,8 @@ import { defineConfig } from "webanvil"
 
 export default defineConfig({
     build: {
-        mode: "node",
-        entry: "src/index.ts",
+        bundle: true,
+        entries: { ".": "src/index.ts" },
         outDir: "dist"
     },
     test: {
@@ -68,6 +68,7 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 ## CLI and config policy
 
 - Persistent behavior options, such as `mode`, `outDir`, test environment, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options. Test includes remain config-only, matching Vitest.
+- `wa build` is the one build command. Web mode uses Vite; Node mode emits an ESM file tree rooted beside its entry unless `--bundle` is set. Bundled Node output accepts ESM/CJS formats, declarations, and explicit `build.entries` mappings.
 - A configured build entry is the default; an explicit positional entry overrides it.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
 
@@ -79,7 +80,7 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 ## Build modes
 
-`web` mode runs Vite and uses an HTML entry. `node` mode runs Rolldown and uses a JavaScript or TypeScript entry. Framework detection, declarations, and the unplugin API belong to later phases.
+`web` mode runs Vite and uses an HTML entry. `node` mode runs Rolldown and emits each JavaScript or TypeScript source module under the entry directory as an ESM file. `--bundle` switches Node mode to explicit library entries with optional dual formats and declarations. Framework detection and the unplugin API belong to later phases.
 
 ## Development modes
 

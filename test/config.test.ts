@@ -39,6 +39,28 @@ describe("defineConfig", () => {
 })
 
 describe("loadConfig", () => {
+    context("with bundled build configuration", () => {
+        it("loads configured entry mappings", async () => {
+            const directory = await createDirectory()
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { bundle: true, entries: { ".": "src/index.ts" } } }'
+            )
+
+            await expect(loadConfig(directory)).resolves.toMatchObject({
+                config: {
+                    build: {
+                        bundle: true,
+                        entries: { ".": "src/index.ts" },
+                        entry: "src/index.ts",
+                        mode: "node",
+                        outDir: "dist"
+                    }
+                }
+            })
+        })
+    })
+
     context("with an object config", () => {
         it("loads the config", async () => {
             const directory = await createDirectory()

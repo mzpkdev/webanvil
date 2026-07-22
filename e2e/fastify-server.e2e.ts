@@ -45,10 +45,6 @@ describe("fastify-server", () => {
             const output = await buildExample(example)
 
             await expect(access(join(output, "server.js"))).resolves.toBeUndefined()
-            await expect(access(join(output, "server.js.map"))).resolves.toBeUndefined()
-            await expect(access(join(output, "server.cjs"))).resolves.toBeUndefined()
-            await expect(access(join(output, "server.cjs.map"))).resolves.toBeUndefined()
-            await expect(access(join(output, "src", "server.d.ts"))).resolves.toBeUndefined()
         }, 60_000)
 
         it("watches, reports build errors, and recovers with wa", async () => {

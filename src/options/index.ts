@@ -1,3 +1,4 @@
+export { bundle } from "./bundle"
 export { check } from "./check"
 export { declaration } from "./declaration"
 export { environment } from "./environment"

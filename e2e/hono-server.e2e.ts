@@ -28,11 +28,10 @@ describe("hono-server", () => {
             await testExample(example)
         }, 60_000)
 
-        it("builds the Hono server with declarations", async () => {
+        it("builds the Hono server as an ESM application", async () => {
             const output = await buildExample(example)
 
             await expect(access(join(output, "server.js"))).resolves.toBeUndefined()
-            await expect(access(join(output, "src", "server.d.ts"))).resolves.toBeUndefined()
         }, 60_000)
     })
 })

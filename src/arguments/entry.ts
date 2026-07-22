@@ -2,5 +2,5 @@ import { defineArgument } from "cmdore"
 
 export const entry = defineArgument({
     name: "entry",
-    description: "Source file to bundle for a library build."
+    description: "Entry file for a web, Node, or bundled library build."
 })
