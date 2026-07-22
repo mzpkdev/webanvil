@@ -4,6 +4,8 @@ import type { OxfmtConfig } from "oxfmt"
 import type { OxlintConfig } from "oxlint"
 import { z } from "zod"
 
+import { isWebAnvilPlugin, type WebAnvilPlugin } from "./plugins"
+
 export const buildConfigSchema = z.strictObject({
     bundle: z.boolean().optional(),
     mode: z.enum(["web", "node"]).optional(),
@@ -38,7 +40,14 @@ export const userConfigSchema = z.strictObject({
     format: formatConfigSchema.optional(),
     lint: lintConfigSchema.optional(),
     test: testConfigSchema.optional(),
-    plugins: z.array(z.unknown()).optional()
+    plugins: z
+        .array(
+            z.custom<WebAnvilPlugin>(
+                isWebAnvilPlugin,
+                "Expected a Vite plugin or a WebAnvil plugin created with definePlugin()"
+            )
+        )
+        .optional()
 })
 
 export type BuildConfig = z.infer<typeof buildConfigSchema>

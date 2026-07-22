@@ -39,11 +39,11 @@ export const checkExampleFormatting = async (example: string): Promise<void> => 
     await runNpm(example, "run", "format:check")
 }
 
-export const buildExample = async (example: string): Promise<string> => {
-    const output = join(example, "dist")
+export const buildExample = async (example: string, outDir = "dist", ...arguments_: string[]): Promise<string> => {
+    const output = join(example, outDir)
 
     await rm(output, { force: true, recursive: true })
-    await runNpm(example, "run", "build")
+    await runNpm(example, "run", "build", "--", ...arguments_)
     return output
 }
 

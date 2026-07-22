@@ -1,6 +1,7 @@
 import { access, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
+import { hasCJSSyntax, hasESMSyntax } from "mlly"
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
 import {
@@ -45,6 +46,24 @@ describe("fastify-server", () => {
             const output = await buildExample(example)
 
             await expect(access(join(output, "server.js"))).resolves.toBeUndefined()
+        }, 60_000)
+
+        it("honors Node CLI output overrides and emits an ESM module", async () => {
+            const output = await buildExample(
+                example,
+                "cli-dist",
+                "--out-dir",
+                "cli-dist",
+                "--minify",
+                "false",
+                "--sourcemap",
+                "false"
+            )
+            const server = await readFile(join(output, "server.js"), "utf8")
+
+            expect(hasESMSyntax(server)).toBe(true)
+            expect(hasCJSSyntax(server)).toBe(false)
+            await expect(access(join(output, "server.js.map"))).rejects.toThrow()
         }, 60_000)
 
         it("watches, reports build errors, and recovers with wa", async () => {

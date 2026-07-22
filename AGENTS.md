@@ -54,6 +54,26 @@ export default defineConfig({
 })
 ```
 
+Use `definePlugin()` to run one unplugin implementation in both Vite and
+Rolldown builds:
+
+```ts
+import { createUnplugin } from "unplugin"
+import { definePlugin, defineConfig } from "webanvil"
+
+const replace = createUnplugin<{ from: string; to: string }>((options) => ({
+    name: "replace",
+    transform: (code) => code.replace(options.from, options.to)
+}))
+
+export default defineConfig({
+    plugins: [definePlugin(replace, { from: "development", to: "production" })]
+})
+```
+
+Plain Vite plugins remain valid for web builds. Node builds require
+`definePlugin()` because they need a Rolldown adapter.
+
 `defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in defaults, then validates the root, `build`, `format`, `lint`, and `test` objects. Defined CLI values override config values.
 
 ```ts

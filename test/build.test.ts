@@ -3,11 +3,17 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { afterEach, describe, describe as context, expect, it } from "vitest"
+import { createUnplugin } from "unplugin"
 
 import { build } from "../src/commands/build"
+import { definePlugin } from "../src/plugins"
 
 const directories: string[] = []
 const initialDirectory = process.cwd()
+const replace = createUnplugin<{ from: string; to: string }>((options) => ({
+    name: "replace",
+    transform: (code) => code.replace(options.from, options.to)
+}))
 
 const createDirectory = async (): Promise<string> => {
     const directory = await mkdtemp(join(tmpdir(), "webanvil-build-"))
@@ -31,16 +37,15 @@ describe("build", () => {
             await writeFile(join(directory, "dist", "stale.js"), "stale\n")
             process.chdir(directory)
 
-            await build("node", "src/index.ts", "dist", {
-                minify: true,
-                sourcemap: true,
-                target: "node20"
-            })
+            await build("node", "src/index.ts", "dist", { minify: true, sourcemap: true, target: "node20" }, [
+                definePlugin(replace, { from: "hello", to: "goodbye" })
+            ])
 
             await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
             await expect(access(join(directory, "dist", "lib", "greeting.js"))).resolves.toBeUndefined()
             await expect(access(join(directory, "dist", "stale.js"))).rejects.toThrow()
             await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("./lib/greeting.js")
+            await expect(readFile(join(directory, "dist", "lib", "greeting.js"), "utf8")).resolves.toContain("goodbye")
         })
     })
 
@@ -86,17 +91,34 @@ describe("build", () => {
             await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
             process.chdir(directory)
 
-            await build("web", "index.html", "dist", {
-                bundle: true,
-                declaration: true,
-                formats: ["esm"],
-                minify: false,
-                sourcemap: true,
-                target: "browser"
-            })
+            await build(
+                "web",
+                "index.html",
+                "dist",
+                {
+                    bundle: true,
+                    declaration: true,
+                    formats: ["esm"],
+                    minify: false,
+                    sourcemap: true,
+                    target: "browser"
+                },
+                [definePlugin(replace, { from: "webanvil", to: "unplugin" })]
+            )
 
             const assets = await readdir(join(directory, "dist", "assets"))
             expect(assets).toContainEqual(expect.stringMatching(/\.js\.map$/))
+            await expect(
+                readFile(
+                    join(
+                        directory,
+                        "dist",
+                        "assets",
+                        assets.find((asset) => asset.endsWith(".js"))!
+                    ),
+                    "utf8"
+                )
+            ).resolves.toContain("unplugin")
         })
     })
 

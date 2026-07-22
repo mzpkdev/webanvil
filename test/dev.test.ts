@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { afterEach, describe, describe as context, expect, it } from "vitest"
+import type { ViteDevServer } from "vite"
 
 import { dev } from "../src/commands/dev"
 
@@ -79,10 +80,8 @@ describe("dev", () => {
                 [
                     {
                         name: "observe-server",
-                        configureServer: (server: {
-                            httpServer: { once: (event: string, listener: () => void) => void }
-                        }) => {
-                            server.httpServer.once("listening", () => {
+                        configureServer: (server: ViteDevServer) => {
+                            server.httpServer?.once("listening", () => {
                                 listening = true
                                 stop()
                             })

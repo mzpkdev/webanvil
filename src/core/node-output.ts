@@ -1,5 +1,5 @@
 import { rename, rm } from "node:fs/promises"
-import { dirname, relative, resolve, sep } from "node:path"
+import { dirname, relative, resolve } from "pathe"
 
 import { type Plugin as RolldownPlugin, rolldown } from "rolldown"
 import { isolatedDeclarationPlugin } from "rolldown/experimental"
@@ -36,9 +36,7 @@ export const applicationInputs = async (rootDir: string): Promise<Record<string,
         ignore: ["**/*.d.ts", "**/*.d.mts", "**/*.d.cts"]
     })
 
-    return Object.fromEntries(
-        files.map((file) => [withoutExtension(relative(rootDir, file)).split(sep).join("/"), file])
-    )
+    return Object.fromEntries(files.map((file) => [withoutExtension(relative(rootDir, file)), file]))
 }
 
 export const sourceRoot = (entry: string, cwd = process.cwd()): string => dirname(resolve(cwd, entry))

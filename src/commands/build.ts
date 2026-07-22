@@ -1,4 +1,4 @@
-import { resolve } from "node:path"
+import { resolve } from "pathe"
 
 import { defineCommand } from "cmdore"
 import { type PluginOption, build as vite } from "vite"
@@ -8,6 +8,7 @@ import { hasToolConfig } from "../config-files"
 import { type BuildConfig, withConfig } from "../config"
 import { applicationInputs, sourceRoot, writeApplicationOutput, writeBundledOutput } from "../core/node-output"
 import { bundle, declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
+import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
 type BuildOptions = Pick<
@@ -20,7 +21,7 @@ export const build = async (
     entry: string,
     outDir: string,
     options: BuildOptions = {},
-    plugins: unknown[] = []
+    plugins: WebAnvilPlugin[] = []
 ): Promise<void> => {
     logger.start(`Building ${entry}`)
 
@@ -31,7 +32,7 @@ export const build = async (
     logger.success(`Built ${entry} to ${outDir}`)
 }
 
-build.web = async (entry: string, outDir: string, options: BuildOptions, plugins: unknown[]): Promise<void> => {
+build.web = async (entry: string, outDir: string, options: BuildOptions, plugins: WebAnvilPlugin[]): Promise<void> => {
     if (await hasToolConfig("vite")) {
         await vite({ root: process.cwd() })
         return
@@ -47,7 +48,7 @@ build.web = async (entry: string, outDir: string, options: BuildOptions, plugins
     await vite({
         root: process.cwd(),
         // Users select Vite-compatible plugins for web builds in their config.
-        plugins: plugins as PluginOption[],
+        plugins: resolveVitePlugins(plugins) as PluginOption[],
         build: {
             outDir: resolve(process.cwd(), outDir),
             minify: options.minify,
@@ -57,7 +58,7 @@ build.web = async (entry: string, outDir: string, options: BuildOptions, plugins
     })
 }
 
-build.node = async (entry: string, outDir: string, options: BuildOptions, plugins: unknown[]): Promise<void> => {
+build.node = async (entry: string, outDir: string, options: BuildOptions, plugins: WebAnvilPlugin[]): Promise<void> => {
     if (options.declaration) throw new Error("Declarations require --bundle")
     if (options.formats?.some((format) => format !== "esm")) {
         throw new Error("CommonJS output requires --bundle")
@@ -68,13 +69,18 @@ build.node = async (entry: string, outDir: string, options: BuildOptions, plugin
         minify: options.minify,
         outDir: resolve(process.cwd(), outDir),
         // Users select Rolldown-compatible plugins for Node builds in their config.
-        plugins: plugins as never[],
+        plugins: resolveRolldownPlugins(plugins),
         sourcemap: options.sourcemap,
         target: options.target
     })
 }
 
-build.bundle = async (entry: string, outDir: string, options: BuildOptions, plugins: unknown[]): Promise<void> => {
+build.bundle = async (
+    entry: string,
+    outDir: string,
+    options: BuildOptions,
+    plugins: WebAnvilPlugin[]
+): Promise<void> => {
     await writeBundledOutput({
         declaration: options.declaration,
         entry,
@@ -82,7 +88,7 @@ build.bundle = async (entry: string, outDir: string, options: BuildOptions, plug
         formats: options.formats,
         minify: options.minify,
         outDir: resolve(process.cwd(), outDir),
-        plugins: plugins as never[],
+        plugins: resolveRolldownPlugins(plugins),
         sourcemap: options.sourcemap,
         target: options.target
     })

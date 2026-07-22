@@ -1,13 +1,14 @@
-import { resolve } from "node:path"
+import { resolve } from "pathe"
 
 import { defineCommand } from "cmdore"
-import { type Plugin as RolldownPlugin, watch } from "rolldown"
-import { type PluginOption, createServer } from "vite"
+import { watch } from "rolldown"
+import { createServer } from "vite"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
 import { withConfig } from "../config"
 import { host, mode, outDir, port } from "../options"
+import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
 const untilTerminated = (): Promise<void> =>
@@ -28,7 +29,7 @@ export const dev = async (
     outDir: string,
     host?: string,
     port?: number,
-    plugins: unknown[] = []
+    plugins: WebAnvilPlugin[] = []
 ): Promise<void> => {
     logger.start(`Starting ${mode} development mode`)
 
@@ -43,12 +44,12 @@ export const dev = async (
 dev.web = async (
     host?: string,
     port?: number,
-    plugins: unknown[] = [],
+    plugins: WebAnvilPlugin[] = [],
     waitForTermination: () => Promise<void> = untilTerminated
 ): Promise<void> => {
     const server = await createServer({
         root: process.cwd(),
-        plugins: (await hasToolConfig("vite")) ? [] : (plugins as PluginOption[]),
+        plugins: (await hasToolConfig("vite")) ? [] : resolveVitePlugins(plugins),
         server: { host, port }
     })
 
@@ -64,12 +65,12 @@ dev.web = async (
 dev.node = async (
     entry: string,
     outDir: string,
-    plugins: unknown[] = [],
+    plugins: WebAnvilPlugin[] = [],
     waitForTermination: () => Promise<void> = untilTerminated
 ): Promise<void> => {
     const watcher = watch({
         input: resolve(process.cwd(), entry),
-        plugins: plugins as RolldownPlugin[],
+        plugins: resolveRolldownPlugins(plugins),
         external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/")),
         output: { dir: resolve(process.cwd(), outDir), format: "es" }
     })

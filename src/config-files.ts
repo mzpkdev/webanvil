@@ -1,5 +1,5 @@
 import { access, readdir } from "node:fs/promises"
-import { join } from "node:path"
+import { join } from "pathe"
 
 export const hasFile = async (path: string): Promise<boolean> =>
     access(path)
