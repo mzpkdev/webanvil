@@ -23,6 +23,8 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 
 ```
 build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web or Node project
+              [--declaration <true|false>] [--sourcemap <true|false>] [--minify <true|false>]
+              [--formats <esm,cjs>] [--target <node20|browser|neutral>]
 test [filters...] [--environment <environment>]       run Vitest
 ```
 

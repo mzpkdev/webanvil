@@ -1,3 +1,8 @@
+export { declaration } from "./declaration"
 export { environment } from "./environment"
+export { formats } from "./formats"
+export { minify } from "./minify"
 export { mode } from "./mode"
 export { outDir } from "./out-dir"
+export { sourcemap } from "./sourcemap"
+export { target } from "./target"

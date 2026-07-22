@@ -45,12 +45,21 @@ describe("loadConfig", () => {
             const directory = await createDirectory()
             await writeFile(
                 join(directory, "webanvil.config.ts"),
-                'export default { build: { outDir: "output" }, test: { environment: "jsdom", include: ["test/**/*.test.ts"] } }'
+                'export default { build: { outDir: "output", declaration: true, sourcemap: true, minify: false, formats: ["esm", "cjs"], target: "node20" }, test: { environment: "jsdom", include: ["test/**/*.test.ts"] } }'
             )
 
             await expect(loadConfig(directory)).resolves.toMatchObject({
                 config: {
-                    build: { mode: "node", entry: "src/index.ts", outDir: "output" },
+                    build: {
+                        mode: "node",
+                        entry: "src/index.ts",
+                        outDir: "output",
+                        declaration: true,
+                        sourcemap: true,
+                        minify: false,
+                        formats: ["esm", "cjs"],
+                        target: "node20"
+                    },
                     test: { environment: "jsdom", include: ["test/**/*.test.ts"] }
                 },
                 configFile: join(directory, "webanvil.config.ts")
@@ -132,9 +141,9 @@ describe("withConfig", () => {
 
     it("uses build config for missing command inputs and gives CLI inputs precedence", async () => {
         const directory = await createDirectory()
-        await writeFile(
-            join(directory, "webanvil.config.ts"),
-            'export default { build: { mode: "web", entry: "src/config.ts", outDir: "configured-dist" } }'
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { mode: "web", entry: "src/config.ts", outDir: "configured-dist", sourcemap: true, minify: false, formats: ["esm"], target: "browser" } }'
         )
         process.chdir(directory)
 
@@ -146,7 +155,11 @@ describe("withConfig", () => {
         await expect(run({ entry: "src/cli.ts" })).resolves.toEqual({
             mode: "web",
             entry: "src/cli.ts",
-            "out-dir": "configured-dist"
+            "out-dir": "configured-dist",
+            sourcemap: true,
+            minify: false,
+            formats: ["esm"],
+            target: "browser"
         })
     })
 })
