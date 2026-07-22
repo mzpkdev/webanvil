@@ -2,13 +2,14 @@
 
 ## What this is
 
-A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js backends, serverless. One bundler (Rolldown) for all builds. One plugin API (unplugin) across all of them.
+A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js backends, serverless. Vite builds web apps and Rolldown builds Node projects. One plugin API (unplugin) spans all of them.
 
 ## Current stack
 
 | Concern | Tool |
 |---|---|
-| All builds | Rolldown |
+| Web builds | Vite |
+| Node builds | Rolldown |
 | Testing | Vitest |
 | Linting and formatting | Biome |
 | Type checking | typescript-native |
@@ -21,8 +22,8 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 ## Commands
 
 ```
-build <entry> --out-dir <dir>  bundle a library entry with Rolldown
-test                            run Vitest
+build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web or Node project
+test                                               run Vitest
 ```
 
 `webanvil` and `wa` are equivalent package binaries.
@@ -34,17 +35,18 @@ import { defineConfig } from "webanvil"
 
 export default defineConfig({
     build: {
+        mode: "node",
         entry: "src/index.ts",
         outDir: "dist"
     }
 })
 ```
 
-`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, then validates the root and `build` objects with strict Zod schemas; configuration is not applied to build commands yet.
+`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in defaults, then validates the root and `build` objects with strict Zod schemas. Defined CLI values override config values.
 
 ## CLI and config policy
 
-- Persistent behavior options, such as `outDir`, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options.
+- Persistent behavior options, such as `mode`, `outDir`, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options.
 - A configured build entry is the default; an explicit positional entry overrides it.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
 
@@ -54,11 +56,11 @@ export default defineConfig({
 - Use `describe` for the subject and `context` for nested conditions. Import the latter with `describe as context` from Vitest.
 - Write examples in RSpec-style language: `context("with ...")` and `it("...")`.
 
-## Planned build modes
+## Build modes
 
-`index.html` will select app mode through Vite; an explicit entry will select library mode through Rolldown. Framework detection, declarations, and the unplugin API belong to this later phase.
+`web` mode runs Vite and uses an HTML entry. `node` mode runs Rolldown and uses a JavaScript or TypeScript entry. Framework detection, declarations, and the unplugin API belong to later phases.
 
-Future config resolution will merge CLI flags, project config, workspace config, and built-ins through defu, then validate with Zod.
+Future config resolution will merge project config, workspace config, and built-ins through defu, then validate with Zod.
 
 ## Project structure
 

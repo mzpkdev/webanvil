@@ -1,6 +1,7 @@
 export default {
     build: {
-        entry: "src/index.ts",
+        mode: "web",
+        entry: "index.html",
         outDir: "dist"
     }
 }

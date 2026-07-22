@@ -3,6 +3,7 @@ import { defu } from "defu"
 import { z } from "zod"
 
 export const buildConfigSchema = z.strictObject({
+    mode: z.enum(["web", "node"]).optional(),
     entry: z.string().min(1).optional(),
     outDir: z.string().min(1).optional(),
     declaration: z.boolean().optional(),
@@ -37,6 +38,7 @@ type ResolvedArguments<TArguments extends CommandArguments> = {
 
 export const defaultConfig = {
     build: {
+        mode: "node",
         entry: "src/index.ts",
         outDir: "dist"
     }
