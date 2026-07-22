@@ -1,4 +1,3 @@
-import { access } from "node:fs/promises"
 import { resolve } from "node:path"
 
 import { defineCommand } from "cmdore"
@@ -11,7 +10,6 @@ import { logger } from "../tools"
 export const build = async ({ entry, "out-dir": outDir }: { entry: string; "out-dir": string }): Promise<void> => {
     const input = resolve(process.cwd(), entry)
     const output = resolve(process.cwd(), outDir)
-    await access(input)
     logger.start(`Building ${entry}`)
 
     const bundle = await rolldown({

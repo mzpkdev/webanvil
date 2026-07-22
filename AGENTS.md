@@ -13,6 +13,7 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 | Linting and formatting | Biome |
 | Type checking | typescript-native |
 | Config loading | c12 + defu |
+| Config validation | Zod v4 |
 | Package discovery | pkg-types |
 | CLI framework | cmdore |
 | CLI logging | consola |
@@ -39,7 +40,19 @@ export default defineConfig({
 })
 ```
 
-`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`; configuration is not applied to build commands yet.
+`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, then validates the root and `build` objects with strict Zod schemas; configuration is not applied to build commands yet.
+
+## CLI and config policy
+
+- Persistent behavior options, such as `outDir`, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options.
+- A configured build entry is the default; an explicit positional entry overrides it.
+- Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
+
+## Test conventions
+
+- Unit suites live in `test/` with the `.test.ts` extension; end-to-end suites live in `e2e/` with the `.e2e.ts` extension.
+- Use `describe` for the subject and `context` for nested conditions. Import the latter with `describe as context` from Vitest.
+- Write examples in RSpec-style language: `context("with ...")` and `it("...")`.
 
 ## Planned build modes
 
