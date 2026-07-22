@@ -1,21 +1,27 @@
-import { execute, terminal } from "cmdore"
-import packageJson from "../package.json" with { type: "json" }
+import { fileURLToPath } from "node:url"
+
+import { execute } from "cmdore"
+import { readPackageJSON } from "pkg-types"
 
 import { buildCommand, testCommand } from "./commands/index"
+import { logger } from "./tools"
 
-export const main = async (...varargs: string[]): Promise<number> =>
-    execute([buildCommand, testCommand], {
+export const main = async (...varargs: string[]): Promise<number> => {
+    const packageJson = await readPackageJSON(fileURLToPath(new URL("..", import.meta.url)))
+
+    return execute([buildCommand, testCommand], {
         argv: varargs,
         metadata: {
-            name: packageJson.name,
+            name: packageJson.name ?? "webanvil",
             version: packageJson.version
         },
         onError: "throw"
     })
+}
 
 main(...process.argv.slice(2))
     .then((code) => process.exit(code))
     .catch((error: unknown) => {
-        terminal.error(error instanceof Error ? error.message : String(error))
+        logger.error(error instanceof Error ? error.message : String(error))
         process.exit(1)
     })
