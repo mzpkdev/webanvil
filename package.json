@@ -12,13 +12,15 @@
         "typecheck": "tsgo --noEmit",
         "lint": "biome check .",
         "format": "biome format --write .",
-        "format:check": "biome format ."
+        "format:check": "biome format .",
+        "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
     },
     "dependencies": {
         "cmdore": "^0.4.1"
     },
     "devDependencies": {
         "@biomejs/biome": "^2.5.5",
+        "@types/node": "^26.1.1",
         "@typescript/native-preview": "^7.0.0-dev.20260707.2",
         "obuild": "^0.4.38",
         "vitest": "^4.1.10"

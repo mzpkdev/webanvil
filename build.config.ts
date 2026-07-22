@@ -6,7 +6,7 @@ export default defineBuildConfig({
       type: 'bundle',
       input: ['./src/index.ts', './src/cli.ts'],
       outDir: './dist',
-      dts: {},
+      dts: false,
     },
   ],
 })
