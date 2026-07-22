@@ -16,12 +16,19 @@ export const buildConfigSchema = z.strictObject({
     target: z.enum(["node20", "browser", "neutral"]).optional()
 })
 
+export const testConfigSchema = z.strictObject({
+    environment: z.string().min(1).optional(),
+    include: z.array(z.string().min(1)).min(1).optional()
+})
+
 export const userConfigSchema = z.strictObject({
     build: buildConfigSchema.optional(),
+    test: testConfigSchema.optional(),
     plugins: z.array(z.unknown()).optional()
 })
 
 export type BuildConfig = z.infer<typeof buildConfigSchema>
+export type TestConfig = z.infer<typeof testConfigSchema>
 export type UserConfig = z.infer<typeof userConfigSchema>
 export type UserConfigFactory = () => UserConfig | Promise<UserConfig>
 export type ConfigExport = UserConfig | UserConfigFactory
@@ -32,6 +39,7 @@ export type ResolvedConfig = {
 }
 
 type CommandArguments = Record<string, unknown>
+type ConfigSection = BuildConfig | TestConfig
 type ResolvedArguments<TArguments extends CommandArguments> = {
     [TKey in keyof TArguments]-?: Exclude<TArguments[TKey], undefined>
 }
@@ -41,10 +49,13 @@ export const defaultConfig = {
         mode: "node",
         entry: "src/index.ts",
         outDir: "dist"
+    },
+    test: {
+        environment: "node"
     }
 } satisfies UserConfig
 
-const toCommandArguments = (config: BuildConfig): CommandArguments =>
+const toCommandArguments = (config: ConfigSection): CommandArguments =>
     Object.fromEntries(
         Object.entries(config)
             .filter(([, value]) => value !== undefined)
@@ -69,14 +80,19 @@ export const loadConfig = async (cwd = process.cwd()): Promise<ResolvedConfig> =
 }
 
 export const withConfig =
-    <TArguments extends CommandArguments, TResult>(
-        run: (arguments_: ResolvedArguments<TArguments>) => TResult | Promise<TResult>
+    <TConfig extends ConfigSection, TArguments extends CommandArguments, TResult>(
+        select: (config: UserConfig) => TConfig | undefined,
+        run: (arguments_: ResolvedArguments<TArguments>, config: TConfig) => TResult | Promise<TResult>
     ) =>
     async (arguments_: TArguments): Promise<TResult> => {
         const { config } = await loadConfig()
+        const selectedConfig = (select(config) ?? {}) as TConfig
 
-        return run({
-            ...toCommandArguments(config.build ?? {}),
-            ...defined(arguments_)
-        } as ResolvedArguments<TArguments>)
+        return run(
+            {
+                ...toCommandArguments(selectedConfig),
+                ...defined(arguments_)
+            } as ResolvedArguments<TArguments>,
+            selectedConfig
+        )
     }

@@ -1,12 +1,19 @@
 import { defineCommand } from "cmdore"
 import { startVitest } from "vitest/node"
 
+import { filters } from "../arguments"
 import { withConfig } from "../config"
+import { environment } from "../options"
 import { logger } from "../tools"
 
-export const test = async (): Promise<void> => {
+export const test = async (filters: string[], environment: string, include?: string[]): Promise<void> => {
     logger.start("Running tests")
-    const vitest = await startVitest("test", [], { passWithNoTests: true, run: true })
+    const vitest = await startVitest("test", filters, {
+        passWithNoTests: true,
+        run: true,
+        environment,
+        ...(include === undefined ? {} : { include })
+    })
     const failed =
         vitest.state.getFiles().some((file) => file.result?.state === "fail") ||
         vitest.state.getUnhandledErrors().length > 0
@@ -20,5 +27,10 @@ export const test = async (): Promise<void> => {
 
 export default defineCommand({
     name: "test",
-    run: withConfig(() => test())
+    arguments: [filters],
+    options: [environment],
+    run: withConfig(
+        (config) => config.test,
+        ({ filters, environment }, config) => test(filters, environment, config.include)
+    )
 })

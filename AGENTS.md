@@ -23,7 +23,7 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 
 ```
 build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web or Node project
-test                                               run Vitest
+test [filters...] [--environment <environment>]       run Vitest
 ```
 
 `webanvil` and `wa` are equivalent package binaries.
@@ -38,15 +38,19 @@ export default defineConfig({
         mode: "node",
         entry: "src/index.ts",
         outDir: "dist"
+    },
+    test: {
+        environment: "node",
+        include: ["test/**/*.test.ts"]
     }
 })
 ```
 
-`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in defaults, then validates the root and `build` objects with strict Zod schemas. Defined CLI values override config values.
+`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in defaults, then validates the root, `build`, and `test` objects with strict Zod schemas. Defined CLI values override config values.
 
 ## CLI and config policy
 
-- Persistent behavior options, such as `mode`, `outDir`, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options.
+- Persistent behavior options, such as `mode`, `outDir`, test environment, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options. Test includes remain config-only, matching Vitest.
 - A configured build entry is the default; an explicit positional entry overrides it.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
 
@@ -61,6 +65,10 @@ export default defineConfig({
 `web` mode runs Vite and uses an HTML entry. `node` mode runs Rolldown and uses a JavaScript or TypeScript entry. Framework detection, declarations, and the unplugin API belong to later phases.
 
 Future config resolution will merge project config, workspace config, and built-ins through defu, then validate with Zod.
+
+## Test configuration
+
+`wa test` passes `test.environment` and `test.include` to Vitest. Its positional filters and `--environment` option mirror Vitest; the CLI environment overrides config. Use `vitest.config.*` only for advanced Vitest configuration that WebAnvil does not expose.
 
 ## Project structure
 

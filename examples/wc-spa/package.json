@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "wa build",
-    "test": "vitest run"
+    "test": "wa test"
   },
   "dependencies": {
     "lit": "^3.3.3"

@@ -3,5 +3,9 @@ export default {
         mode: "web",
         entry: "index.html",
         outDir: "dist"
+    },
+    test: {
+        environment: "jsdom",
+        include: ["test/**/*.test.ts"]
     }
 }

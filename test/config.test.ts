@@ -42,10 +42,16 @@ describe("loadConfig", () => {
     context("with an object config", () => {
         it("loads the config", async () => {
             const directory = await createDirectory()
-            await writeFile(join(directory, "webanvil.config.ts"), 'export default { build: { outDir: "output" } }')
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { outDir: "output" }, test: { environment: "jsdom", include: ["test/**/*.test.ts"] } }'
+            )
 
             await expect(loadConfig(directory)).resolves.toMatchObject({
-                config: { build: { mode: "node", entry: "src/index.ts", outDir: "output" } },
+                config: {
+                    build: { mode: "node", entry: "src/index.ts", outDir: "output" },
+                    test: { environment: "jsdom", include: ["test/**/*.test.ts"] }
+                },
                 configFile: join(directory, "webanvil.config.ts")
             })
         })
@@ -83,6 +89,13 @@ describe("loadConfig", () => {
 
             await expect(loadConfig(directory)).rejects.toThrow()
         })
+
+        it("rejects empty test environments", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "webanvil.config.ts"), 'export default { test: { environment: "" } }')
+
+            await expect(loadConfig(directory)).rejects.toThrow()
+        })
     })
 })
 
@@ -91,7 +104,10 @@ describe("withConfig", () => {
         const directory = await createDirectory()
         process.chdir(directory)
 
-        const run = withConfig(async (arguments_: { entry?: string; "out-dir"?: string }) => arguments_)
+        const run = withConfig(
+            (config) => config.build,
+            async (arguments_: { entry?: string; "out-dir"?: string }) => arguments_
+        )
 
         await expect(run({})).resolves.toEqual({ mode: "node", entry: "src/index.ts", "out-dir": "dist" })
     })
@@ -104,7 +120,10 @@ describe("withConfig", () => {
         )
         process.chdir(directory)
 
-        const run = withConfig(async (arguments_: { entry?: string; "out-dir"?: string }) => arguments_)
+        const run = withConfig(
+            (config) => config.build,
+            async (arguments_: { entry?: string; "out-dir"?: string }) => arguments_
+        )
 
         await expect(run({ entry: "src/cli.ts" })).resolves.toEqual({
             mode: "web",

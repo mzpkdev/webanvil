@@ -47,5 +47,8 @@ export default defineCommand({
     name: "build",
     arguments: [entry],
     options: [mode, outDir],
-    run: withConfig(({ mode, entry, "out-dir": outDir }) => build(mode, entry, outDir))
+    run: withConfig(
+        (config) => config.build,
+        ({ mode, entry, "out-dir": outDir }) => build(mode, entry, outDir)
+    )
 })
