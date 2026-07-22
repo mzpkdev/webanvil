@@ -1,0 +1,7 @@
+{
+  "name": "webanvil",
+  "version": "1.0.0",
+  "bin": {
+    "webanvil": "bin/webanvil"
+  }
+}
