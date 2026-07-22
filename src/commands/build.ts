@@ -58,6 +58,7 @@ export default defineCommand({
     options: [mode, outDir],
     run: withConfig(
         (config) => config.build,
-        ({ mode, entry, "out-dir": outDir }, _buildConfig, { plugins = [] }) => build(mode, entry, outDir, plugins)
+        ({ mode, entry, "out-dir": outDir }, _buildConfig, resolvedConfig) =>
+            build(mode, entry, outDir, resolvedConfig.plugins ?? [])
     )
 })
