@@ -1,6 +1,7 @@
 import { defineCommand } from "cmdore"
 import { startVitest } from "vitest/node"
 
+import { withConfig } from "../config"
 import { logger } from "../tools"
 
 export const test = async (): Promise<void> => {
@@ -19,5 +20,5 @@ export const test = async (): Promise<void> => {
 
 export default defineCommand({
     name: "test",
-    run: test
+    run: withConfig(() => test())
 })

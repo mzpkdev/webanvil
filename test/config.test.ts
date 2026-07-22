@@ -4,9 +4,10 @@ import { join } from "node:path"
 
 import { afterEach, describe, describe as context, expect, it } from "vitest"
 
-import { defineConfig, loadConfig } from "../src/config"
+import { defineConfig, loadConfig, withConfig } from "../src/config"
 
 const directories: string[] = []
+const initialDirectory = process.cwd()
 
 const createDirectory = async (): Promise<string> => {
     const directory = await mkdtemp(join(tmpdir(), "webanvil-config-"))
@@ -15,6 +16,7 @@ const createDirectory = async (): Promise<string> => {
 }
 
 afterEach(async () => {
+    process.chdir(initialDirectory)
     await Promise.all(directories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })))
 })
 
@@ -43,7 +45,7 @@ describe("loadConfig", () => {
             await writeFile(join(directory, "webanvil.config.ts"), 'export default { build: { outDir: "output" } }')
 
             await expect(loadConfig(directory)).resolves.toMatchObject({
-                config: { build: { outDir: "output" } },
+                config: { build: { entry: "src/index.ts", outDir: "output" } },
                 configFile: join(directory, "webanvil.config.ts")
             })
         })
@@ -73,6 +75,33 @@ describe("loadConfig", () => {
             await writeFile(join(directory, "webanvil.config.ts"), 'export default { build: { target: "node18" } }')
 
             await expect(loadConfig(directory)).rejects.toThrow()
+        })
+    })
+})
+
+describe("withConfig", () => {
+    it("uses built-in defaults when no config file exists", async () => {
+        const directory = await createDirectory()
+        process.chdir(directory)
+
+        const run = withConfig(async (arguments_: { entry?: string; "out-dir"?: string }) => arguments_)
+
+        await expect(run({})).resolves.toEqual({ entry: "src/index.ts", "out-dir": "dist" })
+    })
+
+    it("uses build config for missing command inputs and gives CLI inputs precedence", async () => {
+        const directory = await createDirectory()
+        await writeFile(
+            join(directory, "webanvil.config.ts"),
+            'export default { build: { entry: "src/config.ts", outDir: "configured-dist" } }'
+        )
+        process.chdir(directory)
+
+        const run = withConfig(async (arguments_: { entry?: string; "out-dir"?: string }) => arguments_)
+
+        await expect(run({ entry: "src/cli.ts" })).resolves.toEqual({
+            entry: "src/cli.ts",
+            "out-dir": "configured-dist"
         })
     })
 })

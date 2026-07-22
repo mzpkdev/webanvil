@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "wa build src/index.ts --out-dir dist",
+    "build": "wa build",
     "test": "vitest run"
   },
   "dependencies": {

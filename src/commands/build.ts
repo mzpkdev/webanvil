@@ -4,10 +4,11 @@ import { defineCommand } from "cmdore"
 import { rolldown } from "rolldown"
 
 import { entry } from "../arguments"
+import { withConfig } from "../config"
 import { outDir } from "../options"
 import { logger } from "../tools"
 
-export const build = async ({ entry, "out-dir": outDir }: { entry: string; "out-dir": string }): Promise<void> => {
+export const build = async (entry: string, outDir: string): Promise<void> => {
     const input = resolve(process.cwd(), entry)
     const output = resolve(process.cwd(), outDir)
     logger.start(`Building ${entry}`)
@@ -29,5 +30,5 @@ export default defineCommand({
     name: "build",
     arguments: [entry],
     options: [outDir],
-    run: build
+    run: withConfig(({ entry, "out-dir": outDir }) => build(entry, outDir))
 })
