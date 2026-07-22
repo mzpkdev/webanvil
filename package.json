@@ -1,7 +1,26 @@
 {
-  "name": "webanvil",
-  "version": "1.0.0",
-  "bin": {
-    "webanvil": "bin/webanvil"
-  }
+    "name": "webanvil",
+    "version": "1.0.0",
+    "type": "module",
+    "bin": {
+        "webanvil": "bin/webanvil"
+    },
+    "scripts": {
+        "build": "obuild",
+        "test": "vitest run --passWithNoTests",
+        "test:watch": "vitest",
+        "typecheck": "tsgo --noEmit",
+        "lint": "biome check .",
+        "format": "biome format --write .",
+        "format:check": "biome format ."
+    },
+    "dependencies": {
+        "cmdore": "^0.4.1"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "^2.5.5",
+        "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+        "obuild": "^0.4.38",
+        "vitest": "^4.1.10"
+    }
 }
