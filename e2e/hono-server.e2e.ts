@@ -3,7 +3,15 @@ import { join } from "node:path"
 
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
-import { buildExample, checkExampleFormatting, examplePath, installExample, lintExample, testExample } from "./utils"
+import {
+    buildExample,
+    checkExampleFormatting,
+    examplePath,
+    installExample,
+    lintExample,
+    testExample,
+    typecheckExample
+} from "./utils"
 
 const example = examplePath("hono-server")
 
@@ -13,8 +21,9 @@ describe("hono-server", () => {
             await installExample(example)
         }, 60_000)
 
-        it("lints, formats, and tests the server with wa", async () => {
+        it("lints, type checks, formats, and tests the server with wa", async () => {
             await lintExample(example)
+            await typecheckExample(example)
             await checkExampleFormatting(example)
             await testExample(example)
         }, 60_000)

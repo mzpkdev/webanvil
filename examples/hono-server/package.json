@@ -7,6 +7,7 @@
         "format": "wa format",
         "format:check": "wa format --check",
         "lint": "wa lint",
+        "typecheck": "wa typecheck",
         "test": "wa test"
     },
     "dependencies": {

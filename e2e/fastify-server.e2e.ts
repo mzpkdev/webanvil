@@ -12,6 +12,7 @@ import {
     startExample,
     stopExample,
     testExample,
+    typecheckExample,
     waitFor,
     waitForFile
 } from "./utils"
@@ -26,6 +27,10 @@ describe("fastify-server", () => {
 
         it("lints the example with wa", async () => {
             await lintExample(example)
+        }, 60_000)
+
+        it("type checks the example with wa", async () => {
+            await typecheckExample(example)
         }, 60_000)
 
         it("checks the example formatting with wa", async () => {

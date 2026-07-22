@@ -31,6 +31,10 @@ export const lintExample = async (example: string): Promise<void> => {
     await runNpm(example, "run", "lint")
 }
 
+export const typecheckExample = async (example: string): Promise<void> => {
+    await runNpm(example, "run", "typecheck")
+}
+
 export const checkExampleFormatting = async (example: string): Promise<void> => {
     await runNpm(example, "run", "format:check")
 }

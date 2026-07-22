@@ -31,6 +31,7 @@ dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>
 test [filters...] [--environment <environment>]       run Vitest
 lint [paths...] [--fix]                                lint with Oxlint
 format [paths...] [--check]                            format with Oxfmt
+typecheck [paths...]                                   type check a project or explicit files with TypeScript Native Preview
 ```
 
 `webanvil` and `wa` are equivalent package binaries.

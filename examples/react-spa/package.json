@@ -6,7 +6,8 @@
         "build": "wa build",
         "format": "wa format",
         "format:check": "wa format --check",
-        "lint": "wa lint"
+        "lint": "wa lint",
+        "typecheck": "wa typecheck"
     },
     "dependencies": {
         "react": "^19.2.8",

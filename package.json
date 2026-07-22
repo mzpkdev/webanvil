@@ -11,7 +11,7 @@
         "pretest": "npm run build",
         "test": "vitest run --passWithNoTests",
         "test:watch": "vitest",
-        "typecheck": "tsgo --noEmit",
+        "typecheck": "npm run build && node bin/webanvil typecheck",
         "lint": "npm run build && node bin/webanvil lint",
         "lint:fix": "npm run build && node bin/webanvil lint --fix",
         "format": "npm run build && node bin/webanvil format",
@@ -19,6 +19,7 @@
         "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
     },
     "dependencies": {
+        "@typescript/native-preview": "^7.0.0-dev.20260707.2",
         "c12": "^4.0.0-beta.5",
         "cmdore": "^0.4.1",
         "consola": "^3.4.2",
@@ -32,7 +33,6 @@
     },
     "devDependencies": {
         "@types/node": "^26.1.1",
-        "@typescript/native-preview": "^7.0.0-dev.20260707.2",
         "obuild": "^0.4.38",
         "oxfmt": "^0.60.0",
         "oxlint": "^1.75.0"

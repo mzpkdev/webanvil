@@ -8,11 +8,20 @@ import { hasOxcConfig } from "../config-files"
 
 const require = createRequire(import.meta.url)
 
-export const runTool = async (name: "oxfmt" | "oxlint", arguments_: string[], config?: object): Promise<void> => {
-    if (await hasOxcConfig(name)) config = undefined
+type Tool = "oxfmt" | "oxlint" | "tsgo"
 
-    const packageDirectory = dirname(require.resolve(`${name}/package.json`))
-    const command = join(packageDirectory, "bin", name)
+const tools = {
+    oxfmt: { packageName: "oxfmt", executable: "oxfmt" },
+    oxlint: { packageName: "oxlint", executable: "oxlint" },
+    tsgo: { packageName: "@typescript/native-preview", executable: "tsgo" }
+} as const
+
+export const runTool = async (name: Tool, arguments_: string[], config?: object): Promise<void> => {
+    if (name !== "tsgo" && (await hasOxcConfig(name))) config = undefined
+
+    const tool = tools[name]
+    const packageDirectory = dirname(require.resolve(`${tool.packageName}/package.json`))
+    const command = join(packageDirectory, "bin", tool.executable)
     const configPath = config === undefined ? undefined : join(process.cwd(), `.webanvil-${name}-${randomUUID()}.json`)
     const generatedConfig =
         configPath === undefined || name !== "oxfmt"

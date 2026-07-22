@@ -8,6 +8,7 @@
         "format": "wa format",
         "format:check": "wa format --check",
         "lint": "wa lint",
+        "typecheck": "wa typecheck",
         "start": "node dist/server.js",
         "test": "wa test"
     },

@@ -3,7 +3,14 @@ import { join } from "node:path"
 
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
-import { buildExample, checkExampleFormatting, examplePath, installExample, lintExample } from "./utils"
+import {
+    buildExample,
+    checkExampleFormatting,
+    examplePath,
+    installExample,
+    lintExample,
+    typecheckExample
+} from "./utils"
 
 const example = examplePath("vue-spa")
 
@@ -13,8 +20,9 @@ describe("vue-spa", () => {
             await installExample(example)
         }, 60_000)
 
-        it("lints and checks formatting with wa", async () => {
+        it("lints, type checks, and checks formatting with wa", async () => {
             await lintExample(example)
+            await typecheckExample(example)
             await checkExampleFormatting(example)
         }, 60_000)
 
