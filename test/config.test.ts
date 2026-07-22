@@ -36,6 +36,7 @@ describe("defineConfig", () => {
             expect(config()).toEqual({ build: { outDir: "output" } })
         })
     })
+
 })
 
 describe("loadConfig", () => {
@@ -53,6 +54,23 @@ describe("loadConfig", () => {
                     test: { environment: "jsdom", include: ["test/**/*.test.ts"] }
                 },
                 configFile: join(directory, "webanvil.config.ts")
+            })
+        })
+    })
+
+    context("with plugins", () => {
+        it("preserves them while merging built-in defaults", async () => {
+            const directory = await createDirectory()
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { outDir: "output" }, plugins: [{ name: "example" }] }'
+            )
+
+            await expect(loadConfig(directory)).resolves.toMatchObject({
+                config: {
+                    build: { mode: "node", entry: "src/index.ts", outDir: "output" },
+                    plugins: [{ name: "example" }]
+                }
             })
         })
     })

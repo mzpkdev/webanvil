@@ -82,7 +82,11 @@ export const loadConfig = async (cwd = process.cwd()): Promise<ResolvedConfig> =
 export const withConfig =
     <TConfig extends ConfigSection, TArguments extends CommandArguments, TResult>(
         select: (config: UserConfig) => TConfig | undefined,
-        run: (arguments_: ResolvedArguments<TArguments>, config: TConfig) => TResult | Promise<TResult>
+        run: (
+            arguments_: ResolvedArguments<TArguments>,
+            config: TConfig,
+            resolvedConfig: UserConfig
+        ) => TResult | Promise<TResult>
     ) =>
     async (arguments_: TArguments): Promise<TResult> => {
         const { config } = await loadConfig()
@@ -93,6 +97,7 @@ export const withConfig =
                 ...toCommandArguments(selectedConfig),
                 ...defined(arguments_)
             } as ResolvedArguments<TArguments>,
-            selectedConfig
+            selectedConfig,
+            config
         )
     }
