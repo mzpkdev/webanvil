@@ -2,9 +2,9 @@ import { defineCommand } from "cmdore"
 
 import { paths } from "../arguments"
 import { type LintConfig, withConfig } from "../config"
+import { runTool } from "../core/utils"
 import { fix } from "../options"
 import { logger } from "../tools"
-import { runTool } from "./tool"
 
 export const lint = async (paths: string[], fix = false, config?: LintConfig): Promise<void> => {
     logger.start("Linting")

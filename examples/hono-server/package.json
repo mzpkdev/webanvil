@@ -1,0 +1,20 @@
+{
+    "name": "webanvil-example-hono-server",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wa build",
+        "format": "wa format",
+        "format:check": "wa format --check",
+        "lint": "wa lint",
+        "test": "wa test"
+    },
+    "dependencies": {
+        "hono": "^4.0.0"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2",
+        "vitest": "^4.1.10",
+        "webanvil": "file:../.."
+    }
+}

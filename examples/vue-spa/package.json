@@ -1,0 +1,20 @@
+{
+    "name": "webanvil-example-vue-spa",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wa build",
+        "dev": "wa dev",
+        "format": "wa format",
+        "format:check": "wa format --check",
+        "lint": "wa lint"
+    },
+    "dependencies": {
+        "vue": "^3.5.0"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-vue": "^6.0.0",
+        "typescript": "^7.0.2",
+        "webanvil": "file:../.."
+    }
+}

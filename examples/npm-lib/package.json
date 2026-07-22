@@ -1,0 +1,17 @@
+{
+    "name": "webanvil-example-npm-lib",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wa build",
+        "format": "wa format",
+        "format:check": "wa format --check",
+        "lint": "wa lint",
+        "test": "wa test"
+    },
+    "devDependencies": {
+        "typescript": "^7.0.2",
+        "vitest": "^4.1.10",
+        "webanvil": "file:../.."
+    }
+}

@@ -1,0 +1,20 @@
+{
+    "name": "webanvil-example-svelte-spa",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "wa build",
+        "dev": "wa dev",
+        "format": "wa format",
+        "format:check": "wa format --check",
+        "lint": "wa lint"
+    },
+    "dependencies": {
+        "svelte": "^5.0.0"
+    },
+    "devDependencies": {
+        "@sveltejs/vite-plugin-svelte": "^7.0.0",
+        "typescript": "^7.0.2",
+        "webanvil": "file:../.."
+    }
+}

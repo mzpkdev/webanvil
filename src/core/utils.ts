@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process"
+import { randomUUID } from "node:crypto"
 import { unlink, writeFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { basename, dirname, join } from "node:path"
-import { randomUUID } from "node:crypto"
 
 import { hasOxcConfig } from "../config-files"
 
