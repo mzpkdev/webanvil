@@ -60,4 +60,39 @@ describe("dev", () => {
             await watching
         })
     })
+
+    context("with a web build", () => {
+        it("starts and stops a Vite server", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            process.chdir(directory)
+
+            let stop = (): void => {}
+            const terminated = new Promise<void>((resolve) => {
+                stop = resolve
+            })
+            let listening = false
+            await dev.web(
+                "127.0.0.1",
+                0,
+                [
+                    {
+                        name: "observe-server",
+                        configureServer: (server: {
+                            httpServer: { once: (event: string, listener: () => void) => void }
+                        }) => {
+                            server.httpServer.once("listening", () => {
+                                listening = true
+                                stop()
+                            })
+                        }
+                    }
+                ],
+                () => terminated
+            )
+
+            expect(listening).toBe(true)
+        })
+    })
 })

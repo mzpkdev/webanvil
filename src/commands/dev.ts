@@ -40,7 +40,12 @@ export const dev = async (
     else await dev.node(entry, outDir, plugins)
 }
 
-dev.web = async (host?: string, port?: number, plugins: unknown[] = []): Promise<void> => {
+dev.web = async (
+    host?: string,
+    port?: number,
+    plugins: unknown[] = [],
+    waitForTermination: () => Promise<void> = untilTerminated
+): Promise<void> => {
     const server = await createServer({
         root: process.cwd(),
         plugins: (await hasToolConfig("vite")) ? [] : (plugins as PluginOption[]),
@@ -50,7 +55,7 @@ dev.web = async (host?: string, port?: number, plugins: unknown[] = []): Promise
     try {
         await server.listen()
         server.printUrls()
-        await untilTerminated()
+        await waitForTermination()
     } finally {
         await server.close()
     }
