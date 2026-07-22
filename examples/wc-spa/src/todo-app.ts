@@ -98,7 +98,7 @@ export class TodoApp extends LitElement {
         super()
         this.todos = [
             { id: "learn-lit", text: "Learn Lit", completed: true },
-            { id: "build-webanvil", text: "Try Webanvil", completed: false }
+            { id: "build-webanvil", text: "Try WebAnvil", completed: false }
         ]
     }
 

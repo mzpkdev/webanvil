@@ -55,6 +55,6 @@ describe("todo-app", () => {
         await app.updateComplete
 
         expect(app.shadowRoot?.textContent).not.toContain("Learn Lit")
-        expect(app.shadowRoot?.textContent).toContain("Try Webanvil")
+        expect(app.shadowRoot?.textContent).toContain("Try WebAnvil")
     })
 })

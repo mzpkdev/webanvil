@@ -8,6 +8,7 @@
     },
     "scripts": {
         "build": "obuild",
+        "pretest": "npm run build",
         "test": "vitest run --passWithNoTests",
         "test:watch": "vitest",
         "typecheck": "tsgo --noEmit",

@@ -1,28 +1,26 @@
-import { execFile } from "node:child_process"
-import { fileURLToPath } from "node:url"
-import { promisify } from "node:util"
+import { access } from "node:fs/promises"
+import { join } from "node:path"
 
-import { beforeAll, describe as context, describe, it } from "vitest"
+import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
-const execFileAsync = promisify(execFile)
-const npm = process.platform === "win32" ? "npm.cmd" : "npm"
-const root = fileURLToPath(new URL("..", import.meta.url))
-const example = fileURLToPath(new URL("../examples/fastify-server", import.meta.url))
+import { buildExample, examplePath, installExample, testExample } from "./utils"
 
-const runNpm = async (cwd: string, ...args: string[]): Promise<void> => {
-    await execFileAsync(npm, args, { cwd })
-}
+const example = examplePath("fastify-server")
 
 describe("fastify-server", () => {
-    context("when Webanvil and the example dependencies are installed", () => {
+    context("when WebAnvil and the example dependencies are installed", () => {
         beforeAll(async () => {
-            await runNpm(example, "ci")
-            await runNpm(root, "run", "build")
+            await installExample(example)
         }, 60_000)
 
-        it("tests and builds with wa", async () => {
-            await runNpm(example, "run", "test")
-            await runNpm(example, "run", "build")
+        it("runs the example test suite", async () => {
+            await testExample(example)
+        }, 60_000)
+
+        it("builds a Node entry with wa", async () => {
+            const output = await buildExample(example)
+
+            await expect(access(join(output, "server.js"))).resolves.toBeUndefined()
         }, 60_000)
     })
 })
