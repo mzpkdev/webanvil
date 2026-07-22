@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1012" height="240" viewBox="100 35 850 220" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">WebAnvil</title>
+  <desc id="desc">WebAnvil logo with a forged anvil mark, orange web and cyan anvil wordmark.</desc>
+  <defs>
+    <linearGradient id="fire" x1="70" y1="64" x2="530" y2="229" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFAA38"/><stop offset=".5" stop-color="#FF6422"/><stop offset="1" stop-color="#E34216"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="173" y1="60" x2="879" y2="235" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00C2E8"/><stop offset="1" stop-color="#147CF5"/>
+    </linearGradient>
+    <filter id="glow" x="-25%" y="-35%" width="150%" height="170%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g transform="translate(120 42) scale(.72)">
+    <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M50 106H92L117 82H268L292 106H342L309 135H264L250 157H228L260 221H298L315 244H77L94 221H132L164 157H142L128 135H83L50 106Z" stroke="url(#fire)" stroke-width="10"/>
+    <path d="M126 118H265" stroke="url(#arc)" stroke-width="5"/>
+    <path d="M188 205H238" stroke="url(#arc)" stroke-width="7"/>
+    <path d="M38 83H87L113 58H160" stroke="url(#fire)" stroke-width="4" filter="url(#glow)"/>
+    <circle cx="38" cy="83" r="7" stroke="url(#fire)" stroke-width="4"/>
+    <circle cx="160" cy="58" r="7" stroke="url(#fire)" stroke-width="4"/>
+    <path d="M239 58H281L306 83H343" stroke="url(#arc)" stroke-width="4" filter="url(#glow)"/>
+    <circle cx="239" cy="58" r="7" stroke="url(#arc)" stroke-width="4"/>
+    <circle cx="343" cy="83" r="7" stroke="url(#arc)" stroke-width="4"/>
+    </g>
+  </g>
+  <path d="M389 69H941" stroke="#94A3B8" stroke-opacity=".28" stroke-width="2"/>
+  <g fill="url(#fire)">
+    <path d="M410 75H424L434 137L445 96H458L469 137L479 75H493L477 176H463L451 126L439 176H425L410 75Z"/>
+    <path d="M505 75H560V89H521V116H556V130H521V162H560V176H505V75Z"/>
+    <path fill-rule="evenodd" d="M572 75H616L630 89V116L620 126L632 137V162L618 176H572V75ZM588 89V116H610L616 110V95L610 89H588ZM588 130V162H612L618 156V137L612 130H588Z"/>
+  </g>
+  <g fill="url(#arc)">
+    <path fill-rule="evenodd" d="M642 176L663 75H681L702 176H686L681 152H663L658 176H642ZM666 137H678L672 105L666 137Z"/>
+    <path d="M713 176V75H729L758 133V75H774V176H758L729 118V176H713Z"/>
+    <path d="M784 75H801L820 148L839 75H856L831 176H809L784 75Z"/>
+    <path d="M867 75H884V176H867V75Z"/>
+    <path d="M895 75H912V162H947V176H895V75Z"/>
+  </g>
+  <path d="M400 192H939" stroke="#94A3B8" stroke-opacity=".3" stroke-width="2"/>
+  <path d="M400 192H592" stroke="url(#fire)" stroke-width="4" stroke-linecap="square"/>
+  <path d="M598 192H939" stroke="url(#arc)" stroke-width="4" stroke-linecap="square"/>
+  <text x="404" y="222" fill="#64748B" font-family="Menlo, Consolas, monospace" font-size="15" font-weight="700" letter-spacing="2.5">ONE FORGE. EVERY TARGET.</text>
+  <g fill="url(#arc)" filter="url(#glow)"><circle cx="902" cy="215" r="4"/><circle cx="918" cy="215" r="4"/><circle cx="934" cy="215" r="4"/></g>
+</svg>
