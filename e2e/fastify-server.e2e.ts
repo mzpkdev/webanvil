@@ -1,9 +1,18 @@
-import { access } from "node:fs/promises"
+import { access, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
-import { buildExample, examplePath, installExample, testExample } from "./utils"
+import {
+    buildExample,
+    examplePath,
+    installExample,
+    startExample,
+    stopExample,
+    testExample,
+    waitFor,
+    waitForFile
+} from "./utils"
 
 const example = examplePath("fastify-server")
 
@@ -25,6 +34,32 @@ describe("fastify-server", () => {
             await expect(access(join(output, "server.cjs"))).resolves.toBeUndefined()
             await expect(access(join(output, "server.cjs.map"))).resolves.toBeUndefined()
             await expect(access(join(output, "src", "server.d.ts"))).resolves.toBeUndefined()
+        }, 60_000)
+
+        it("watches, reports build errors, and recovers with wa", async () => {
+            const source = join(example, "src", "server.ts")
+            const output = join(example, "dist", "server.js")
+            const original = await readFile(source, "utf8")
+            await rm(output, { force: true })
+            const dev = startExample(example)
+
+            try {
+                await waitForFile(output)
+                const initialOutputTime = (await stat(output)).mtimeMs
+                await writeFile(source, "export const broken =")
+                await waitFor(
+                    async () => dev.child.exitCode === null && /error/i.test(dev.output()),
+                    `Watcher did not report an error:\n${dev.output()}`
+                )
+                await writeFile(source, original)
+                await waitFor(
+                    async () => (await stat(output)).mtimeMs > initialOutputTime,
+                    `Watcher did not rebuild after the error:\n${dev.output()}`
+                )
+            } finally {
+                await writeFile(source, original)
+                await stopExample(dev)
+            }
         }, 60_000)
     })
 })

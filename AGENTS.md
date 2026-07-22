@@ -25,6 +25,8 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web or Node project
               [--declaration <true|false>] [--sourcemap <true|false>] [--minify <true|false>]
               [--formats <esm,cjs>] [--target <node20|browser|neutral>]
+dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>]
+                                                     start a Vite server or Rolldown watcher
 test [filters...] [--environment <environment>]       run Vitest
 ```
 
@@ -65,6 +67,10 @@ export default defineConfig({
 ## Build modes
 
 `web` mode runs Vite and uses an HTML entry. `node` mode runs Rolldown and uses a JavaScript or TypeScript entry. Framework detection, declarations, and the unplugin API belong to later phases.
+
+## Development modes
+
+`wa dev` starts Vite's development server in web mode. `--host` and `--port` configure that server. In node mode, it watches and rebuilds the configured entry with Rolldown; it does not execute or restart the output. Process supervision, signals, stdio, and port ownership belong to the application runtime. Watch build errors are reported and leave the watcher running.
 
 Future config resolution will merge project config, workspace config, and built-ins through defu, then validate with Zod.
 
