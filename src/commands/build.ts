@@ -11,7 +11,6 @@ import { logger } from "../tools"
 export const build = async ({ entry, "out-dir": outDir }: { entry: string; "out-dir": string }): Promise<void> => {
     const input = resolve(process.cwd(), entry)
     const output = resolve(process.cwd(), outDir)
-
     await access(input)
     logger.start(`Building ${entry}`)
 

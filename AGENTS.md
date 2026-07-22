@@ -4,99 +4,66 @@
 
 A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js backends, serverless. One bundler (Rolldown) for all builds. One plugin API (unplugin) across all of them.
 
-## Stack
+## Current stack
 
 | Concern | Tool |
 |---|---|
 | All builds | Rolldown |
-| Dev server + HMR | Vite 8 |
-| Plugin API | unplugin |
 | Testing | Vitest |
-| Linting | Oxlint |
-| Formatting | Oxfmt |
+| Linting and formatting | Biome |
 | Type checking | typescript-native |
 | Config loading | c12 + defu |
-| Config validation | Zod v4 |
+| Package discovery | pkg-types |
 | CLI framework | cmdore |
+| CLI logging | consola |
 
 ## Commands
 
 ```
-build [entry]    app mode if index.html present, lib mode if entry provided
-dev [root]       Vite 8 (FE) or tsx watch (BE)
-bundle <entry>   single-file output, no splitting
-test             Vitest
-typecheck        typescript-native
-lint             Oxlint
-format           Oxfmt
-run <task>       Vite Task (monorepo)
-init             scaffold config + tsconfig + .gitignore
-clean            remove build artifacts
+build <entry> --out-dir <dir>  bundle a library entry with Rolldown
+test                            run Vitest
 ```
 
-## Build mode detection
-
-```
-index.html present       → app mode: Rolldown via Vite 8, code splitting, hashed assets, framework plugin auto-detected
-entry provided, no html  → lib mode: Rolldown, ESM + CJS, .d.ts via rolldown-plugin-dts
-neither                  → error, require explicit entry
-```
-
-Framework auto-detection reads `package.json` deps → auto-wires the right Vite plugin for React/Vue/Solid/Svelte/Preact. Warn if plugin not installed, don't error.
-
-## Plugin API
-
-```ts
-// my-plugin.ts
-import { createUnplugin } from 'unplugin'
-
-export const myPlugin = createUnplugin((options) => ({
-  name: 'my-plugin',
-  transform(code, id) { ... },
-  resolveId(id) { ... },
-}))
-```
-
-CLI passes plugins to Rolldown for `build`/`bundle`, to Vite via unplugin's vite adapter for `dev`. Same plugin, both paths.
+`webanvil` and `wa` are equivalent package binaries.
 
 ## Config
 
 ```ts
+import { defineConfig } from "webanvil"
+
 export default defineConfig({
-  build: {
-    outDir: 'dist',
-    entry: 'src/index.ts',
-    declaration: true,      // lib mode only
-    sourcemap: true,
-    minify: false,
-    formats: ['esm', 'cjs'], // lib mode only
-    target: 'node20',        // or 'browser', 'neutral'
-  },
-  plugins: [],
+    build: {
+        entry: "src/index.ts",
+        outDir: "dist"
+    }
 })
 ```
 
-Loaded by c12, merged by defu (CLI flags → project config → workspace config → builtins), validated by Zod at load time. Same Zod schema generates JSON Schema for editor autocomplete.
+`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`; configuration is not applied to build commands yet.
+
+## Planned build modes
+
+`index.html` will select app mode through Vite; an explicit entry will select library mode through Rolldown. Framework detection, declarations, and the unplugin API belong to this later phase.
+
+Future config resolution will merge CLI flags, project config, workspace config, and built-ins through defu, then validate with Zod.
 
 ## Project structure
 
 ```
 src/
   cli.ts           #!/usr/bin/env node, calls main()
-  index.ts         parse argv, delegate to cmdore
+  index.ts         public exports
+  main.ts          parse argv, delegate to cmdore
   config.ts        UserConfig, ResolvedConfig, loadConfig()
-  tools.ts         binOf(), run(), exec(), shared helpers
-  frameworks.ts    detectFramework() → Vite plugin
-  workspace.ts     monorepo package discovery
-  schema.ts        Zod schema + JSON Schema generation
-  commands/        one file per command
-  options/         one file per shared option (watch, target, config, minify)
+  tools.ts         shared consola logger
+  commands/        build and test commands
+  arguments/       positional command arguments
+  options/         shared command options
 ```
 
 ## Key patterns
 
-- `binOf(tool)` — resolve binaries from this package's own `node_modules`, never PATH
-- `whenProvided` — CLI flags only override config when explicitly passed
-- `z.strictObject` on config — mistyped keys are hard errors at load time
-- `hasConfig()` — fs check to detect project ownership in monorepos
-- `defineCommand` / `defineOption` from cmdore for every command and shared option
+- `defineConfig` accepts object and zero-argument function configs.
+- `loadConfig()` loads `webanvil.config.*` through c12.
+- `defineCommand` and `defineOption` from cmdore define commands and shared options.
+- `logger` is the shared tagged consola instance.
