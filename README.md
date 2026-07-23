@@ -221,6 +221,15 @@ build:
 wa build --copy "assets/**=assets" "src/templates/**=templates"
 ```
 
+Both paths are relative to the project root: `from` is a file path or glob and
+`to` is an output directory. This is useful for Node runtime files such as Fastify email
+or response templates: `{ from: "src/templates/**", to: "templates" }` makes
+`src/templates/welcome.txt` available as `dist/templates/welcome.txt`.
+
+Copy destinations must not resolve to the same file as generated output, another
+mapping, or an untracked file already in the output directory. WebAnvil fails
+instead of overwriting in each case.
+
 Web builds keep Vite's `publicDir` behavior unchanged. Do not use `copy` for
 assets imported by application code; Vite continues to manage those assets.
 

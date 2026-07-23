@@ -91,6 +91,7 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 - Persistent behavior options, such as `mode`, `outDir`, static `copy` mappings, test environment, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options. Test includes remain config-only, matching Vitest.
 - `wa build` is the one build command. Web mode uses Vite; Node mode emits an ESM file tree rooted beside its entry unless `--bundle` is set. Bundled Node output accepts ESM/CJS formats, declarations, and explicit `build.entries` mappings.
+- Static copy mappings use project-relative `{ from, to }` pairs, where `from` is a file path or glob and `to` is an output directory. Preserve paths beneath the glob's static base, reject destinations that resolve to a generated, duplicate, or untracked output file, and record copied files for `wa clean`.
 - `wa build` records emitted and statically copied paths in `.webanvil/buildinfo.json`; `wa clean` removes only those paths and leaves the state file with an empty output list.
 - A configured build entry is the default; an explicit positional entry overrides it.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
