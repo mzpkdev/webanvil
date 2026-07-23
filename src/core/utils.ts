@@ -1,27 +1,25 @@
-import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import { unlink, writeFile } from "node:fs/promises"
-import { createRequire } from "node:module"
+import { fileURLToPath } from "node:url"
+import { execa } from "execa"
 import { basename, dirname, join } from "pathe"
 
 import { hasOxcConfig } from "../config-files"
 
-const require = createRequire(import.meta.url)
-
 type Tool = "oxfmt" | "oxlint" | "tsgo"
 
 const tools = {
-    oxfmt: { packageName: "oxfmt", executable: "oxfmt" },
-    oxlint: { packageName: "oxlint", executable: "oxlint" },
-    tsgo: { packageName: "@typescript/native-preview", executable: "tsgo" }
+    oxfmt: { executable: "oxfmt" },
+    oxlint: { executable: "oxlint" },
+    tsgo: { executable: "tsgo" }
 } as const
+
+const packageDirectory = dirname(fileURLToPath(new URL("../../package.json", import.meta.url)))
 
 export const runTool = async (name: Tool, arguments_: string[], config?: object): Promise<void> => {
     if (name !== "tsgo" && (await hasOxcConfig(name))) config = undefined
 
     const tool = tools[name]
-    const packageDirectory = dirname(require.resolve(`${tool.packageName}/package.json`))
-    const command = join(packageDirectory, "bin", tool.executable)
     const configPath = config === undefined ? undefined : join(process.cwd(), `.webanvil-${name}-${randomUUID()}.json`)
     const generatedConfig =
         configPath === undefined || name !== "oxfmt"
@@ -39,19 +37,13 @@ export const runTool = async (name: Tool, arguments_: string[], config?: object)
     if (configPath !== undefined) await writeFile(configPath, `${JSON.stringify(generatedConfig)}\n`)
 
     try {
-        await new Promise<void>((resolve, reject) => {
-            const child = spawn(
-                process.execPath,
-                [command, ...(configPath === undefined ? [] : ["--config", configPath]), ...arguments_],
-                { stdio: "inherit" }
-            )
+        const result = await execa(
+            tool.executable,
+            [...(configPath === undefined ? [] : ["--config", configPath]), ...arguments_],
+            { localDir: packageDirectory, preferLocal: true, reject: false, stdio: "inherit" }
+        )
 
-            child.once("error", reject)
-            child.once("exit", (code) => {
-                if (code === 0) resolve()
-                else reject(new Error(`${name} exited with code ${code ?? "unknown"}`))
-            })
-        })
+        if (result.exitCode !== 0) throw new Error(`${name} exited with code ${result.exitCode ?? "unknown"}`)
     } finally {
         if (configPath !== undefined) await unlink(configPath)
     }
