@@ -3,37 +3,30 @@ import { join } from "node:path"
 
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
-import {
-    buildExample,
-    checkExampleFormatting,
-    examplePath,
-    installExample,
-    lintExample,
-    typecheckExample
-} from "./utils"
+import { project, npm, webanvil } from "./utils"
 
-const example = examplePath("react-spa")
+const example = project("react-spa")
 
 describe("react-spa", () => {
     context("when WebAnvil and the example dependencies are installed", () => {
         beforeAll(async () => {
-            await installExample(example)
+            await npm.install(example)
         }, 60_000)
 
         it("lints the example with wa", async () => {
-            await lintExample(example)
+            await webanvil.lint(example)
         }, 60_000)
 
         it("type checks the example with wa", async () => {
-            await typecheckExample(example)
+            await webanvil.typecheck(example)
         }, 60_000)
 
         it("checks the example formatting with wa", async () => {
-            await checkExampleFormatting(example)
+            await webanvil.format(example)
         }, 60_000)
 
         it("builds a JSX entry with wa", async () => {
-            const output = await buildExample(example)
+            const output = await webanvil.build(example)
             const assets = await readdir(join(output, "assets"))
             const script = assets.find((asset) => asset.endsWith(".js"))
 

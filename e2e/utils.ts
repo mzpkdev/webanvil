@@ -1,55 +1,32 @@
-import { type ChildProcess, execFile, spawn } from "node:child_process"
+import { execFile, spawn } from "node:child_process"
 import { access, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 
 const execFileAsync = promisify(execFile)
-const npm = process.platform === "win32" ? "npm.cmd" : "npm"
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm"
+const wa = process.platform === "win32" ? "wa.cmd" : "wa"
 const root = fileURLToPath(new URL("..", import.meta.url))
 
-const runNpm = async (cwd: string, ...args: string[]): Promise<void> => {
-    await execFileAsync(npm, args, { cwd })
+export async function npm(cwd: string, ...args: string[]): Promise<void> {
+    await execFileAsync(npmCommand, args, { cwd })
 }
 
-export type DevProcess = {
-    child: ChildProcess
+export async function webanvil(cwd: string, ...args: string[]): Promise<void> {
+    await execFileAsync(join(cwd, "node_modules", ".bin", wa), args, { cwd })
+}
+
+type DevServer = {
     output: () => string
+    stop: () => Promise<void>
 }
 
-export const examplePath = (name: string): string => join(root, "examples", name)
+export const project = (name: string): string => join(root, "examples", name)
 
-export const installExample = async (example: string): Promise<void> => {
-    await runNpm(example, "ci")
-}
-
-export const testExample = async (example: string): Promise<void> => {
-    await runNpm(example, "run", "test")
-}
-
-export const lintExample = async (example: string): Promise<void> => {
-    await runNpm(example, "run", "lint")
-}
-
-export const typecheckExample = async (example: string): Promise<void> => {
-    await runNpm(example, "run", "typecheck")
-}
-
-export const checkExampleFormatting = async (example: string): Promise<void> => {
-    await runNpm(example, "run", "format:check")
-}
-
-export const buildExample = async (example: string, outDir = "dist", ...arguments_: string[]): Promise<string> => {
-    const output = join(example, outDir)
-
-    await rm(output, { force: true, recursive: true })
-    await runNpm(example, "run", "build", "--", ...arguments_)
-    return output
-}
-
-export const startExample = (example: string, ...args: string[]): DevProcess => {
+const startWebAnvil = (example: string, ...args: string[]): DevServer => {
     let output = ""
-    const child = spawn(npm, ["run", "dev", "--", ...args], {
+    const child = spawn(join(example, "node_modules", ".bin", wa), ["dev", ...args], {
         cwd: example,
         stdio: ["ignore", "pipe", "pipe"]
     })
@@ -60,8 +37,45 @@ export const startExample = (example: string, ...args: string[]): DevProcess => 
     child.stdout?.on("data", collect)
     child.stderr?.on("data", collect)
 
-    return { child, output: () => output }
+    return {
+        output: () => output,
+        stop: async (): Promise<void> => {
+            if (child.exitCode !== null) return
+
+            await new Promise<void>((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    child.kill("SIGKILL")
+                    reject(new Error("Development process did not stop"))
+                }, 10_000)
+
+                child.once("error", (error) => {
+                    clearTimeout(timeout)
+                    reject(error)
+                })
+                child.once("exit", () => {
+                    clearTimeout(timeout)
+                    resolve()
+                })
+                child.kill("SIGTERM")
+            })
+        }
+    }
 }
+
+npm.install = (cwd: string) => npm(cwd, "ci")
+
+webanvil.build = async (cwd: string, outDir = "dist", ...args: string[]): Promise<string> => {
+    const output = join(cwd, outDir)
+
+    await rm(output, { force: true, recursive: true })
+    await webanvil(cwd, "build", ...args)
+    return output
+}
+webanvil.dev = startWebAnvil
+webanvil.format = (cwd: string) => webanvil(cwd, "format", "--check")
+webanvil.lint = (cwd: string) => webanvil(cwd, "lint")
+webanvil.test = (cwd: string) => webanvil(cwd, "test")
+webanvil.typecheck = (cwd: string) => webanvil(cwd, "typecheck")
 
 const pause = async (milliseconds: number): Promise<void> => {
     await new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
@@ -90,25 +104,4 @@ export const waitForFile = async (path: string): Promise<void> => {
                 .catch(() => false),
         `Timed out waiting for ${path}`
     )
-}
-
-export const stopExample = async ({ child }: DevProcess): Promise<void> => {
-    if (child.exitCode !== null) return
-
-    await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            child.kill("SIGKILL")
-            reject(new Error("Development process did not stop"))
-        }, 10_000)
-
-        child.once("error", (error) => {
-            clearTimeout(timeout)
-            reject(error)
-        })
-        child.once("exit", () => {
-            clearTimeout(timeout)
-            resolve()
-        })
-        child.kill("SIGTERM")
-    })
 }
