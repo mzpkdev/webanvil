@@ -1,14 +1,15 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { afterEach, describe, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 
 import { preview } from "../src/commands/preview"
 
 const directories: string[] = []
 const initialDirectory = process.cwd()
+const initialBrowser = process.env.BROWSER
 
 const createDirectory = async (): Promise<string> => {
     const directory = await mkdtemp(join(tmpdir(), "webanvil-preview-"))
@@ -45,6 +46,8 @@ const waitFor = async (url: string, expected: string): Promise<void> => {
 
 afterEach(async () => {
     process.chdir(initialDirectory)
+    if (initialBrowser === undefined) delete process.env.BROWSER
+    else process.env.BROWSER = initialBrowser
     await Promise.all(directories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })))
 })
 
@@ -53,7 +56,20 @@ describe("preview", () => {
         const directory = await createDirectory()
         await mkdir(join(directory, "vite-dist"), { recursive: true })
         await mkdir(join(directory, "webanvil-dist"), { recursive: true })
-        await writeFile(join(directory, "vite.config.ts"), 'export default { build: { outDir: "vite-dist" } }')
+        await writeFile(
+            join(directory, "vite.config.ts"),
+            `import { writeFileSync } from "node:fs"
+
+export default {
+    build: { outDir: "vite-dist" },
+    plugins: [{
+        name: "record-preview-open",
+        configResolved(config) {
+            writeFileSync("preview-open.txt", String(config.preview.open))
+        }
+    }]
+}`
+        )
         await writeFile(join(directory, "vite-dist", "index.html"), "vite\n")
         await writeFile(join(directory, "webanvil-dist", "index.html"), "webanvil\n")
         process.chdir(directory)
@@ -76,5 +92,16 @@ describe("preview", () => {
         await waitFor(`http://127.0.0.1:${port}`, "webanvil\n")
         stopOverride()
         await servingOverriddenOutput
+
+        process.env.BROWSER = "none"
+        let stopOpen = (): void => {}
+        const openTerminated = new Promise<void>((resolve) => {
+            stopOpen = resolve
+        })
+        const servingOpenPreview = preview("webanvil-dist", "127.0.0.1", port, true, () => openTerminated, true)
+        await waitFor(`http://127.0.0.1:${port}`, "webanvil\n")
+        expect(await readFile(join(directory, "preview-open.txt"), "utf8")).toBe("true")
+        stopOpen()
+        await servingOpenPreview
     })
 })

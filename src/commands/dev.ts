@@ -1,13 +1,12 @@
-import { resolve } from "pathe"
-
 import { defineCommand } from "cmdore"
-import { watch } from "rolldown"
+import { type Plugin as RolldownPlugin, watch } from "rolldown"
 import { createServer } from "vite"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
 import { withConfig } from "../config"
-import { host, mode, outDir, port } from "../options"
+import { createNodeBuildPlan, type NodeBuildOptions, nodeWatchLifecycle } from "../core/node-build"
+import { bundle, copy, declaration, formats, host, minify, mode, outDir, port, sourcemap, target } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
@@ -29,7 +28,8 @@ export const dev = async (
     outDir: string,
     host?: string,
     port?: number,
-    plugins: WebAnvilPlugin[] = []
+    plugins: WebAnvilPlugin[] = [],
+    options: NodeBuildOptions = {}
 ): Promise<void> => {
     logger.start(`Starting ${mode} development mode`)
 
@@ -38,7 +38,7 @@ export const dev = async (
     }
 
     if (mode === "web") await dev.web(host, port, plugins)
-    else await dev.node(entry, outDir, plugins)
+    else await dev.node(entry, outDir, plugins, untilTerminated, options)
 }
 
 dev.web = async (
@@ -66,22 +66,39 @@ dev.node = async (
     entry: string,
     outDir: string,
     plugins: WebAnvilPlugin[] = [],
-    waitForTermination: () => Promise<void> = untilTerminated
+    waitForTermination: () => Promise<void> = untilTerminated,
+    options: NodeBuildOptions = {}
 ): Promise<void> => {
+    const plan = await createNodeBuildPlan(entry, outDir, options, resolveRolldownPlugins(plugins))
+    const lifecycle = nodeWatchLifecycle(plan)
+    plan.output.input.plugins = [...((plan.output.input.plugins ?? []) as RolldownPlugin[]), lifecycle.plugin]
     const watcher = watch({
-        input: resolve(process.cwd(), entry),
-        plugins: resolveRolldownPlugins(plugins),
-        external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/")),
-        output: { dir: resolve(process.cwd(), outDir), format: "es" }
+        ...plan.output.input,
+        output: plan.output.output
     })
+    let failed = false
 
     watcher.on("event", async (event) => {
+        if (event.code === "START") {
+            failed = false
+            await lifecycle.start()
+        }
+
         if (event.code === "BUNDLE_END") {
             await event.result.close()
-            logger.success(`Built ${entry} to ${outDir}`)
+        }
+
+        if (event.code === "END" && !failed) {
+            try {
+                await lifecycle.complete()
+                logger.success(`Built ${entry} to ${outDir}`)
+            } catch (error) {
+                logger.error(error)
+            }
         }
 
         if (event.code === "ERROR") {
+            failed = true
             await event.result.close()
             logger.error(event.error)
         }
@@ -97,10 +114,36 @@ dev.node = async (
 export default defineCommand({
     name: "dev",
     arguments: [entry],
-    options: [mode, outDir, host, port],
+    options: [mode, outDir, host, port, bundle, copy, declaration, sourcemap, minify, formats, target],
     run: withConfig(
         (config) => config.build,
-        ({ mode, entry, "out-dir": outDir, host, port }, _buildConfig, resolvedConfig) =>
-            dev(mode, entry, outDir, host, port, resolvedConfig.plugins ?? [])
+        (
+            {
+                bundle,
+                copy,
+                declaration,
+                formats,
+                minify,
+                mode,
+                entry,
+                "out-dir": outDir,
+                host,
+                port,
+                sourcemap,
+                target
+            },
+            buildConfig,
+            resolvedConfig
+        ) =>
+            dev(mode, entry, outDir, host, port, resolvedConfig.plugins ?? [], {
+                bundle: bundle || buildConfig.bundle,
+                copy,
+                declaration,
+                entries: buildConfig.entries,
+                formats,
+                minify,
+                sourcemap,
+                target
+            })
     )
 })

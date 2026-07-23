@@ -63,11 +63,12 @@ describe("wc-spa", () => {
         }, 60_000)
 
         it("starts the Vitest UI with wa", async () => {
-            const ui = webanvil.testUi(example)
+            const port = await availablePort()
+            const ui = webanvil.testUi(example, "--ui-port", String(port))
 
             try {
                 await waitFor(
-                    async () => (await fetch("http://localhost:51204/__vitest__/")).ok,
+                    async () => (await fetch(`http://127.0.0.1:${port}/__vitest__/`)).ok,
                     `Vitest UI did not start:\n${ui.output()}`
                 )
             } finally {
@@ -99,7 +100,7 @@ describe("wc-spa", () => {
         it("serves the production build with wa preview", async () => {
             await webanvil.build(example)
             const port = await availablePort()
-            const server = webanvil.preview(example, "--host", "127.0.0.1", "--port", String(port))
+            const server = webanvil.preview(example, "--host", "127.0.0.1", "--port", String(port), "--open")
 
             try {
                 await waitFor(async () => {

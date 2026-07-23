@@ -5,7 +5,7 @@ import { preview as vitePreview } from "vite"
 
 import { hasToolConfig } from "../config-files"
 import { loadConfig } from "../config"
-import { host, outDir, port } from "../options"
+import { host, open, outDir, port } from "../options"
 import { logger } from "../tools"
 
 const untilTerminated = (): Promise<void> =>
@@ -25,13 +25,14 @@ export const preview = async (
     host?: string,
     port?: number,
     useOutDir = false,
-    waitForTermination: () => Promise<void> = untilTerminated
+    waitForTermination: () => Promise<void> = untilTerminated,
+    openBrowser?: boolean
 ): Promise<void> => {
     logger.start("Starting web preview")
     const server = await vitePreview({
         root: process.cwd(),
         ...((await hasToolConfig("vite")) && !useOutDir ? {} : { build: { outDir: resolve(process.cwd(), outDir) } }),
-        preview: { host, port }
+        preview: { host, port, ...(openBrowser === undefined ? {} : { open: openBrowser }) }
     })
 
     try {
@@ -44,9 +45,16 @@ export const preview = async (
 
 export default defineCommand({
     name: "preview",
-    options: [outDir, host, port],
-    run: async ({ "out-dir": outDir, host, port }) => {
+    options: [outDir, host, port, open],
+    run: async ({ "out-dir": outDir, host, port, open }) => {
         const { config } = await loadConfig()
-        return preview(outDir ?? config.build?.outDir ?? "dist", host, port, outDir !== undefined)
+        return preview(
+            outDir ?? config.build?.outDir ?? "dist",
+            host,
+            port,
+            outDir !== undefined,
+            untilTerminated,
+            open
+        )
     }
 })

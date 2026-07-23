@@ -6,18 +6,15 @@ import { glob } from "tinyglobby"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
-import { type BuildConfig, withConfig } from "../config"
+import { withConfig } from "../config"
 import { removeOutputsIn, writeBuildInfo } from "../core/build-info"
-import { applicationInputs, sourceRoot, writeApplicationOutput, writeBundledOutput } from "../core/node-output"
+import { createNodeBuildPlan, type NodeBuildOptions, runNodeBuild } from "../core/node-build"
 import { assertStaticCopyDestinationsAvailable, copyStaticFiles, planStaticCopies } from "../core/static-copy"
 import { bundle, copy, declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
-type BuildOptions = Pick<
-    BuildConfig,
-    "bundle" | "copy" | "declaration" | "entries" | "formats" | "minify" | "sourcemap" | "target"
->
+export type BuildOptions = NodeBuildOptions
 
 type WebBuild = { config: InlineConfig; emptyOutDir: boolean; outDir: string; publicDir?: string }
 
@@ -37,22 +34,24 @@ export const build = async (
 ): Promise<void> => {
     logger.start(`Building ${entry}`)
 
-    const web = mode === "web" ? await build.webConfig(entry, outDir, options, plugins) : undefined
-    const target = web?.outDir ?? resolve(process.cwd(), outDir)
+    if (mode === "node") {
+        const plan = await createNodeBuildPlan(entry, outDir, options, resolveRolldownPlugins(plugins))
+        await runNodeBuild(plan)
+        logger.success(`Built ${entry} to ${outDir}`)
+        return
+    }
+
+    const web = await build.webConfig(entry, outDir, options, plugins)
+    const target = web.outDir
     const copies = await planStaticCopies(options.copy, target)
-    if (web?.emptyOutDir && copies.length > 0) {
+    if (web.emptyOutDir && copies.length > 0) {
         throw new Error("Vite build.emptyOutDir must be false when using static copy mappings")
     }
-    const publicOutput = web ? await build.publicOutputFiles(web) : []
-    const predictedOutput = web ? publicOutput : await build.nodeOutputFiles(entry, target, options)
-    await assertStaticCopyDestinationsAvailable(copies, predictedOutput, false)
+    const publicOutput = await build.publicOutputFiles(web)
+    await assertStaticCopyDestinationsAvailable(copies, publicOutput, false)
     const existing = await removeOutputsIn(target)
     await assertStaticCopyDestinationsAvailable(copies)
-    const output = web
-        ? await build.web(web)
-        : options.bundle
-          ? await build.bundle(entry, outDir, options, plugins)
-          : await build.node(entry, outDir, options, plugins)
+    const output = await build.web(web)
 
     const copied = await copyStaticFiles(copies, output)
     await writeBuildInfo([...existing.output, ...output, ...copied])
@@ -102,61 +101,10 @@ build.publicOutputFiles = async ({ outDir, publicDir }: WebBuild): Promise<strin
         ? (await glob("**/*", { cwd: publicDir, onlyFiles: true, dot: true })).map((file) => resolve(outDir, file))
         : []
 
-build.nodeOutputFiles = async (entry: string, outDir: string, options: BuildOptions): Promise<string[]> => {
-    if (options.bundle) return []
-
-    const inputs = await applicationInputs(sourceRoot(entry))
-    return Object.keys(inputs).flatMap((file) => {
-        const output = resolve(outDir, `${file}.js`)
-        return options.sourcemap ? [output, `${output}.map`] : [output]
-    })
-}
-
 build.web = async (web: WebBuild): Promise<string[]> => [
     ...outputFiles(await vite(web.config), web.outDir),
     ...(await build.publicOutputFiles(web))
 ]
-
-build.node = async (
-    entry: string,
-    outDir: string,
-    options: BuildOptions,
-    plugins: WebAnvilPlugin[]
-): Promise<string[]> => {
-    if (options.declaration) throw new Error("Declarations require --bundle")
-    if (options.formats?.some((format) => format !== "esm")) {
-        throw new Error("CommonJS output requires --bundle")
-    }
-
-    return writeApplicationOutput({
-        inputs: await applicationInputs(sourceRoot(entry)),
-        minify: options.minify,
-        outDir: resolve(process.cwd(), outDir),
-        // Users select Rolldown-compatible plugins for Node builds in their config.
-        plugins: resolveRolldownPlugins(plugins),
-        sourcemap: options.sourcemap,
-        target: options.target
-    })
-}
-
-build.bundle = async (
-    entry: string,
-    outDir: string,
-    options: BuildOptions,
-    plugins: WebAnvilPlugin[]
-): Promise<string[]> => {
-    return writeBundledOutput({
-        declaration: options.declaration,
-        entry,
-        entries: options.entries,
-        formats: options.formats,
-        minify: options.minify,
-        outDir: resolve(process.cwd(), outDir),
-        plugins: resolveRolldownPlugins(plugins),
-        sourcemap: options.sourcemap,
-        target: options.target
-    })
-}
 
 export default defineCommand({
     name: "build",

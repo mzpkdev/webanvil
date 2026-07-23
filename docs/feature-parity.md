@@ -21,14 +21,14 @@ and workspace orchestration.
 | ----------------------------------- | ------------------------------- | ------------------------------------ | ---------------------- | --------------------------------- | ------------------------------------------------- |
 | Web application build               | Yes, Vite                       | No                                   | No                     | Yes, `vp build`                   | None for the core case                            |
 | Web development server              | Yes, Vite                       | No                                   | No                     | Yes, `vp dev`                     | None for the core case                            |
-| Node package build                  | Yes, explicit bundled entries   | Yes                                  | Yes                    | Yes, `vp pack`                    | Package validation and watch                      |
+| Node package build                  | Yes, explicit bundled entries   | Yes                                  | Yes                    | Yes, `vp pack`                    | Package validation                                |
 | Type declarations                   | Partial, opt-in Rolldown output | Yes, package-aware modes             | Yes, `dts` options     | Yes, `pack.dts`                   | Package export-aware declaration layout           |
 | Multiple entries                    | Yes, explicit mappings          | Yes                                  | Yes                    | Yes                               | Package entry inference                           |
 | Bundleless output                   | Yes, Node default + static copy | Yes, `mkdist`                        | Yes, transform entries | Partial, via `pack` features      | File transforms                                   |
 | Package entry inference             | No, explicit entries            | Yes, from `package.json`             | No                     | Config-driven                     | Infer and validate `exports`, `main`, and `types` |
 | Package build validation            | No                              | Missing and unused dependency checks | No                     | N/A                               | Detect invalid exports and dependency mistakes    |
 | Stub development build              | No                              | Yes                                  | Yes                    | No                                | Lower priority developer convenience              |
-| Build watch                         | Partial, Node rebuild only      | Yes                                  | No documented mode     | Yes, `pack --watch`               | Package watch with declaration output             |
+| Build watch                         | Yes, full configured Node build | Yes                                  | No documented mode     | Yes, `pack --watch`               | Config reload and richer recovery diagnostics     |
 | Package hooks                       | No                              | No                                   | Yes                    | No                                | Build lifecycle extension points                  |
 | Test                                | Yes, Vitest                     | No                                   | No                     | Yes, `vp test`                    | None for the core case                            |
 | Lint, format, typecheck             | Yes, separately                 | No                                   | No                     | Yes, direct and `vp check`        | A native aggregate `wa check` command             |
@@ -43,8 +43,10 @@ and workspace orchestration.
 - `wa build` delegates web builds to Vite and Node builds to Rolldown.
 - Node builds accept ESM/CJS formats, sourcemaps, minification, target, and an
   experimental declaration plugin.
-- `wa dev` starts Vite for web projects and rebuilds a Node entry with Rolldown.
-  It does not execute or restart the Node output.
+- `wa dev` starts Vite for web projects. Node watch mode shares the one-shot
+  build plan, including entries, formats, declarations, static copies,
+  stale-output cleanup, and build-info. It does not execute or restart the Node
+  output.
 - `wa preview` serves web build output through Vite. `wa test` exposes Vitest
   one-shot, watch, V8 coverage, and UI modes; lint, format, and typecheck invoke
   Oxlint, Oxfmt, and `tsgo` directly.
@@ -62,7 +64,7 @@ Keep one build command. Node output preserves source modules by default;
 - accept multiple entries;
 - emit ESM, CJS, compatible declaration files, sourcemaps, and minified output;
 - validate that generated files satisfy `exports`, `main`, `module`, and `types`;
-- support `--watch` and report output files, formats, and exports.
+- report output files, formats, and exports in one-shot and watch summaries.
 
 This closes the highest-value unbuild gap and gives WebAnvil a clear library
 story alongside its existing application build.

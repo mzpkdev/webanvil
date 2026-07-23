@@ -5,7 +5,7 @@ import { glob } from "tinyglobby"
 
 import type { CopyMapping } from "../config"
 
-type CopyFile = { from: string; to: string }
+export type CopyFile = { from: string; to: string }
 
 const isInside = (directory: string, target: string): boolean => {
     const path = relative(directory, target)
@@ -18,8 +18,23 @@ const staticBase = (pattern: string): string => {
     return index === -1 ? dirname(pattern) : parts.slice(0, index).join("/") || "."
 }
 
-const assertRelative = (path: string, label: string): void => {
-    if (path.length === 0 || isAbsolute(path) || !isInside(process.cwd(), resolve(process.cwd(), path))) {
+export const staticCopyWatchPaths = (mappings: CopyMapping[] | undefined, cwd = process.cwd()): string[] => {
+    if (mappings == null || mappings.length === 0) return []
+
+    return [
+        ...new Set(
+            mappings.map(({ from }) => {
+                assertRelative(from, "Copy source", cwd)
+                const base = resolve(cwd, staticBase(from))
+                if (!isInside(cwd, base)) throw new Error(`Copy source is outside the project root: ${from}`)
+                return base
+            })
+        )
+    ]
+}
+
+const assertRelative = (path: string, label: string, cwd = process.cwd()): void => {
+    if (path.length === 0 || isAbsolute(path) || !isInside(cwd, resolve(cwd, path))) {
         throw new Error(`${label} must be relative to the project root: ${path}`)
     }
 }
@@ -47,18 +62,23 @@ const assertSourceInsideProject = async (file: string, cwd: string): Promise<voi
     }
 }
 
-export const planStaticCopies = async (mappings: CopyMapping[] | undefined, outDir: string): Promise<CopyFile[]> => {
+export const planStaticCopies = async (
+    mappings: CopyMapping[] | undefined,
+    outDir: string,
+    cwd = process.cwd()
+): Promise<CopyFile[]> => {
     if (mappings == null || mappings.length === 0) return []
 
-    const cwd = process.cwd()
     const output = resolve(cwd, outDir)
     if (!isInside(cwd, output)) throw new Error(`Build output directory must be within the project root: ${outDir}`)
+    // Fail early when the output path itself traverses a symlink. Individual
+    // destinations are checked again immediately before each copy.
     await assertNoSymlink(resolve(output, ".webanvil-static-copy"), cwd)
 
     const copies = await Promise.all(
         mappings.map(async ({ from, to }) => {
-            assertRelative(from, "Copy source")
-            assertRelative(to, "Copy destination")
+            assertRelative(from, "Copy source", cwd)
+            assertRelative(to, "Copy destination", cwd)
             const base = resolve(cwd, staticBase(from))
             if (!isInside(cwd, base)) throw new Error(`Copy source is outside the project root: ${from}`)
             const files = await glob(from, { cwd, dot: true, onlyFiles: true })
@@ -85,12 +105,15 @@ export const planStaticCopies = async (mappings: CopyMapping[] | undefined, outD
     return files
 }
 
-export const copyStaticFiles = async (copies: CopyFile[], generated: string[]): Promise<string[]> => {
+export const copyStaticFiles = async (
+    copies: CopyFile[],
+    generated: string[],
+    cwd = process.cwd()
+): Promise<string[]> => {
     if (copies.length === 0) return []
 
     await assertStaticCopyDestinationsAvailable(copies, generated)
 
-    const cwd = process.cwd()
     for (const { from, to } of copies) {
         await assertNoSymlink(to, cwd)
         await mkdir(dirname(to), { recursive: true })

@@ -39,10 +39,16 @@ export const availablePort = async (): Promise<number> =>
         })
     })
 
-const startWebAnvil = (example: string, command: string, ...args: string[]): DevServer => {
+const startWebAnvil = (
+    example: string,
+    command: string,
+    args: string[],
+    environment: NodeJS.ProcessEnv = process.env
+): DevServer => {
     let output = ""
     const child = spawn(join(example, "node_modules", ".bin", wa), [command, ...args], {
         cwd: example,
+        env: environment,
         stdio: ["ignore", "pipe", "pipe"]
     })
     const collect = (data: Buffer): void => {
@@ -90,11 +96,12 @@ webanvil.clean = (cwd: string) => webanvil(cwd, "clean")
 webanvil.format = (cwd: string) => webanvil(cwd, "format", "--check")
 webanvil.lint = (cwd: string) => webanvil(cwd, "lint")
 webanvil.test = (cwd: string, ...args: string[]) => webanvil(cwd, "test", ...args)
-webanvil.testUi = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "test", "--ui", ...args)
-webanvil.testWatch = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "test", "--watch", ...args)
+webanvil.testUi = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "test", ["--ui", ...args])
+webanvil.testWatch = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "test", ["--watch", ...args])
 webanvil.typecheck = (cwd: string) => webanvil(cwd, "typecheck")
-webanvil.preview = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "preview", ...args)
-webanvil.dev = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "dev", ...args)
+webanvil.preview = (cwd: string, ...args: string[]) =>
+    startWebAnvil(cwd, "preview", args, { ...process.env, BROWSER: "none" })
+webanvil.dev = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "dev", args)
 
 const pause = async (milliseconds: number): Promise<void> => {
     await new Promise<void>((resolve) => setTimeout(resolve, milliseconds))

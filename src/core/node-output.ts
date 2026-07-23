@@ -1,7 +1,13 @@
 import { rename, rm } from "node:fs/promises"
 import { dirname, relative, resolve } from "pathe"
 
-import { type Plugin as RolldownPlugin, rolldown } from "rolldown"
+import {
+    type InputOptions,
+    type OutputOptions,
+    type Plugin as RolldownPlugin,
+    type RolldownBuild,
+    rolldown
+} from "rolldown"
 import { isolatedDeclarationPlugin } from "rolldown/experimental"
 import { glob } from "tinyglobby"
 
@@ -15,12 +21,23 @@ type NodeOutputOptions = {
 }
 
 type BundleOutputOptions = Omit<NodeOutputOptions, "inputs" | "plugins"> & {
+    cwd?: string
     declaration?: boolean
     entry: string
     entries?: Record<string, string>
     formats?: Array<"esm" | "cjs">
     plugins?: RolldownPlugin[]
 }
+
+export type NodeOutputPlan = {
+    declarations: boolean
+    input: InputOptions
+    outDir: string
+    output: OutputOptions[]
+    predictedOutput: string[]
+}
+
+type WritableBundle = Pick<RolldownBuild, "write">
 
 const sourceExtensions = [".cts", ".mts", ".tsx", ".jsx", ".ts", ".js"]
 
@@ -41,34 +58,52 @@ export const applicationInputs = async (rootDir: string): Promise<Record<string,
 
 export const sourceRoot = (entry: string, cwd = process.cwd()): string => dirname(resolve(cwd, entry))
 
-export const writeApplicationOutput = async ({
+const commonInput = (
+    plugins: RolldownPlugin[],
+    target: "node20" | "browser" | "neutral"
+): Pick<InputOptions, "external" | "platform" | "plugins" | "transform"> => ({
+    plugins,
+    platform: target === "node20" ? "node" : target,
+    ...(target === "node20" ? { transform: { target } } : {}),
+    external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/"))
+})
+
+export const applicationOutputPlan = ({
     inputs,
     minify,
     outDir,
     plugins = [],
     sourcemap,
     target = "node20"
-}: NodeOutputOptions): Promise<string[]> => {
+}: NodeOutputOptions): NodeOutputPlan => {
     if (Object.keys(inputs).length === 0) throw new Error("No application source files found")
 
-    const bundle = await rolldown({
-        input: inputs,
-        plugins,
-        platform: target === "node20" ? "node" : target,
-        ...(target === "node20" ? { transform: { target } } : {}),
-        external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/"))
-    })
-
-    try {
-        const output = await bundle.write({
-            cleanDir: false,
-            dir: outDir,
-            entryFileNames: "[name].js",
-            format: "es",
-            minify,
-            sourcemap
+    return {
+        declarations: false,
+        input: { input: inputs, ...commonInput(plugins, target) },
+        outDir,
+        output: [
+            {
+                cleanDir: false,
+                dir: outDir,
+                entryFileNames: "[name].js",
+                format: "es",
+                minify,
+                sourcemap
+            }
+        ],
+        predictedOutput: Object.keys(inputs).flatMap((file) => {
+            const output = resolve(outDir, `${file}.js`)
+            return sourcemap ? [output, `${output}.map`] : [output]
         })
-        return output.output.map((file) => resolve(outDir, file.fileName))
+    }
+}
+
+export const writeApplicationOutput = async (options: NodeOutputOptions): Promise<string[]> => {
+    const plan = applicationOutputPlan(options)
+    const bundle = await rolldown(plan.input)
+    try {
+        return writeNodeOutput(plan, bundle)
     } finally {
         await bundle.close()
     }
@@ -99,7 +134,8 @@ const moveDeclarations = async (outDir: string): Promise<{ source: string[]; des
     return { source: files, destination }
 }
 
-export const writeBundledOutput = async ({
+export const bundledOutputPlan = ({
+    cwd = process.cwd(),
     declaration,
     entry,
     entries,
@@ -109,34 +145,46 @@ export const writeBundledOutput = async ({
     plugins = [],
     sourcemap,
     target = "node20"
-}: BundleOutputOptions): Promise<string[]> => {
-    const cwd = process.cwd()
-    const inputs = bundledInputs(cwd, entry, entries)
+}: BundleOutputOptions): NodeOutputPlan => {
     const emitDeclarations = declaration === true
+    return {
+        declarations: emitDeclarations,
+        input: {
+            input: bundledInputs(cwd, entry, entries),
+            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], target)
+        },
+        outDir,
+        output: formats.map((format) => ({
+            cleanDir: false,
+            dir: outDir,
+            entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
+            format: format === "esm" ? "es" : "cjs",
+            minify,
+            sourcemap
+        })),
+        predictedOutput: []
+    }
+}
 
-    const bundle = await rolldown({
-        input: inputs,
-        plugins: [...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])],
-        platform: target === "node20" ? "node" : target,
-        ...(target === "node20" ? { transform: { target } } : {}),
-        external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/"))
-    })
+export const normalizeNodeOutput = async (plan: NodeOutputPlan, output: string[]): Promise<string[]> => {
+    const declarations = plan.declarations ? await moveDeclarations(plan.outDir) : { source: [], destination: [] }
+    return [...output.filter((file) => !declarations.source.includes(file)), ...declarations.destination]
+}
 
+export const writeNodeOutput = async (plan: NodeOutputPlan, bundle: WritableBundle): Promise<string[]> => {
+    const output: string[] = []
+    for (const options of plan.output) {
+        const result = await bundle.write(options)
+        output.push(...result.output.map((file) => resolve(plan.outDir, file.fileName)))
+    }
+    return normalizeNodeOutput(plan, output)
+}
+
+export const writeBundledOutput = async (options: BundleOutputOptions): Promise<string[]> => {
+    const plan = bundledOutputPlan(options)
+    const bundle = await rolldown(plan.input)
     try {
-        const output: string[] = []
-        for (const format of formats) {
-            const result = await bundle.write({
-                cleanDir: false,
-                dir: outDir,
-                entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
-                format: format === "esm" ? "es" : "cjs",
-                minify,
-                sourcemap
-            })
-            output.push(...result.output.map((file) => resolve(outDir, file.fileName)))
-        }
-        const declarations = emitDeclarations ? await moveDeclarations(outDir) : { source: [], destination: [] }
-        return [...output.filter((file) => !declarations.source.includes(file)), ...declarations.destination]
+        return writeNodeOutput(plan, bundle)
     } finally {
         await bundle.close()
     }

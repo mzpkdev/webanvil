@@ -4,7 +4,7 @@ import { startVitest } from "vitest/node"
 import { filters } from "../arguments"
 import { hasToolConfig } from "../config-files"
 import { withConfig } from "../config"
-import { coverage, environment, ui, watch } from "../options"
+import { coverage, environment, ui, uiPort, watch } from "../options"
 import { logger } from "../tools"
 
 const untilTerminated = (): Promise<void> =>
@@ -23,9 +23,11 @@ export const test = async (
     filters: string[],
     environment: string,
     include?: string[],
-    options: { coverage?: boolean; ui?: boolean; watch?: boolean } = {},
+    options: { coverage?: boolean; ui?: boolean; uiPort?: number; watch?: boolean } = {},
     waitForTermination: () => Promise<void> = untilTerminated
 ): Promise<void> => {
+    if (options.uiPort !== undefined && options.ui !== true) throw new Error("--ui-port requires --ui")
+
     logger.start("Running tests")
     const hasVitestConfig = await hasToolConfig("vitest")
     const persistent = options.watch === true || options.ui === true
@@ -35,6 +37,7 @@ export const test = async (
         watch: persistent,
         ...(options.coverage ? { coverage: { enabled: true, provider: "v8" } } : {}),
         ...(options.ui ? { ui: true } : {}),
+        ...(options.uiPort === undefined ? {} : { api: { host: "127.0.0.1", port: options.uiPort, strictPort: true } }),
         ...(hasVitestConfig ? {} : { environment, ...(include === undefined ? {} : { include }) })
     })
     if (persistent) {
@@ -59,10 +62,10 @@ export const test = async (
 export default defineCommand({
     name: "test",
     arguments: [filters],
-    options: [environment, watch, coverage, ui],
+    options: [environment, watch, coverage, ui, uiPort],
     run: withConfig(
         (config) => config.test,
-        ({ filters, environment, coverage, ui, watch }, config) =>
-            test(filters, environment, config.include, { coverage, ui, watch })
+        ({ filters, environment, coverage, ui, "ui-port": uiPort, watch }, config) =>
+            test(filters, environment, config.include, { coverage, ui, uiPort, watch })
     )
 })

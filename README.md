@@ -152,7 +152,10 @@ export default defineConfig({
 })
 ```
 
-`wa dev` watches and rebuilds Node output. It does not run or restart the server process.
+`wa dev` watches and rebuilds Node output with the same `build` configuration as
+`wa build`: bundle mode, entries, formats, declarations, source maps,
+minification, target, plugins, static copies, stale-output cleanup, and build
+metadata all stay in sync. It does not run or restart the server process.
 
 ### Node build plugins
 
@@ -217,7 +220,7 @@ web or Node build. Each mapping preserves the path beneath the source glob's
 static base. For example, `assets/**` mapped to `assets` copies
 `assets/images/logo.svg` to `dist/assets/images/logo.svg`. `--copy` accepts one
 or more `source=destination` mappings and replaces configured mappings for that
-build:
+run:
 
 ```sh
 wa build --copy "assets/**=assets" "src/templates/**=templates"
@@ -232,6 +235,10 @@ Copy destinations must not resolve to the same file as generated output, another
 mapping, or an untracked file already in the output directory. WebAnvil fails
 instead of overwriting in each case.
 
+Node watch mode re-expands copy globs on every rebuild. Changes and deletions to
+currently matched files trigger rebuilds; newly matching files are included on
+the next rebuild.
+
 Web builds keep Vite's `publicDir` behavior unchanged. Do not use `copy` for
 assets imported by application code; Vite continues to manage those assets.
 
@@ -245,10 +252,12 @@ Vitest UI:
 wa test --watch
 wa test --coverage
 wa test --ui
+wa test --ui --ui-port 51204
 ```
 
 These are run-specific modes; keep persistent Vitest configuration in
-`vitest.config.*`.
+`vitest.config.*`. `--ui-port` selects a strict loopback port and requires
+`--ui`.
 
 ### Cleaning build output
 
@@ -284,15 +293,15 @@ That lets a project standardize on `wa` now and move settings into `webanvil.con
 Command reference
 -----------------
 
-| Command                   | Description                                            | Options                                                                                              |
-| ------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. | `--mode`, `--out-dir`, `--copy`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
-| `wa clean`                | Removes files emitted by prior WebAnvil builds.        | No options                                                                                           |
-| `wa dev [entry]`          | Starts a Vite server or a Node build watcher.          | `--mode`, `--out-dir`, `--host`, `--port`                                                            |
-| `wa preview`              | Serves a Vite production build.                        | `--out-dir`, `--host`, `--port`                                                                      |
-| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI. | `--environment`, `--watch`, `--coverage`, `--ui`                                                     |
-| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.           | `--fix`                                                                                              |
-| `wa format [paths...]`    | Formats with Oxfmt.                                    | `--check`                                                                                            |
-| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                    | No options                                                                                           |
+| Command                   | Description                                            | Options                                                                                                                              |
+| ------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target`                     |
+| `wa clean`                | Removes files emitted by prior WebAnvil builds.        | No options                                                                                                                           |
+| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.     | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
+| `wa preview`              | Serves a Vite production build.                        | `--out-dir`, `--host`, `--port`, `--open`                                                                                            |
+| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI. | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                        |
+| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.           | `--fix`                                                                                                                              |
+| `wa format [paths...]`    | Formats with Oxfmt.                                    | `--check`                                                                                                                            |
+| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                    | No options                                                                                                                           |
 
 Run `wa <command> --help` for the complete reference for a command.
