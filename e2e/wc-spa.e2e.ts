@@ -63,22 +63,15 @@ describe("wc-spa", () => {
         }, 60_000)
 
         it("starts the Vitest UI with wa", async () => {
-            const config = join(example, "vitest.config.ts")
-            const port = await availablePort()
-            await writeFile(
-                config,
-                `export default { test: { api: { port: ${port} }, environment: "jsdom", include: ["test/**/*.test.ts"] } }`
-            )
             const ui = webanvil.testUi(example)
 
             try {
                 await waitFor(
-                    async () => (await fetch(`http://127.0.0.1:${port}/__vitest__/`)).ok,
+                    async () => (await fetch("http://127.0.0.1:51204/__vitest__/")).ok,
                     `Vitest UI did not start:\n${ui.output()}`
                 )
             } finally {
                 await ui.stop()
-                await rm(config, { force: true })
             }
         }, 60_000)
 
