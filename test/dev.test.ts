@@ -78,6 +78,40 @@ describe("dev", () => {
             await watching
         })
 
+        it("infers watched library outputs from package metadata", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export const greeting: string = "hello"\n')
+            await writeFile(
+                join(directory, "package.json"),
+                JSON.stringify({
+                    exports: {
+                        ".": {
+                            types: "./dist/index.d.ts",
+                            import: "./dist/index.js",
+                            require: "./dist/index.cjs"
+                        }
+                    }
+                })
+            )
+            process.chdir(directory)
+
+            let stop = (): void => {}
+            const terminated = new Promise<void>((resolve) => {
+                stop = resolve
+            })
+            const watching = dev.node("src/index.ts", "dist", [], () => terminated, { bundle: true })
+
+            try {
+                await waitForFile(join(directory, "dist", "index.js"))
+                await waitForFile(join(directory, "dist", "index.cjs"))
+                await waitForFile(join(directory, "dist", "index.d.ts"))
+            } finally {
+                stop()
+                await watching
+            }
+        })
+
         it("keeps bundled library output in parity with one-shot builds", { timeout: 20_000 }, async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src"), { recursive: true })

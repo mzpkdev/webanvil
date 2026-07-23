@@ -14,8 +14,6 @@ export default {
         entry: "index.ts",
         entries: { ".": "index.ts", "./feature": "feature.ts" },
         outDir: ".",
-        declaration: true,
-        formats: ["esm", "cjs"],
         sourcemap: true
     },
     plugins: [definePlugin(replace, { from: "Hello", to: "Hello from a plugin" })],

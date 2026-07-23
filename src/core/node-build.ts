@@ -13,6 +13,7 @@ import {
     writeNodeOutput
 } from "./node-output"
 import { removeOutputsIn, writeBuildInfo } from "./build-info"
+import { resolvePackageOutputOptions } from "./package-options"
 import {
     assertStaticCopyDestinationsAvailable,
     type CopyFile,
@@ -54,30 +55,32 @@ export const createNodeBuildPlan = async (
     }
 
     const cwd = process.cwd()
+    const packageOptions = options.bundle ? await resolvePackageOutputOptions(options, cwd) : {}
+    const resolvedOptions = { ...options, ...packageOptions }
     const target = resolve(cwd, outDir)
-    const output = options.bundle
+    const output = resolvedOptions.bundle
         ? bundledOutputPlan({
               cwd,
-              declaration: options.declaration,
+              declaration: resolvedOptions.declaration,
               entry,
-              entries: options.entries,
-              formats: options.formats,
-              minify: options.minify,
+              entries: resolvedOptions.entries,
+              formats: resolvedOptions.formats,
+              minify: resolvedOptions.minify,
               outDir: target,
               plugins,
-              sourcemap: options.sourcemap,
-              target: options.target
+              sourcemap: resolvedOptions.sourcemap,
+              target: resolvedOptions.target
           })
         : applicationOutputPlan({
               inputs: await applicationInputs(sourceRoot(entry, cwd)),
-              minify: options.minify,
+              minify: resolvedOptions.minify,
               outDir: target,
               plugins,
-              sourcemap: options.sourcemap,
-              target: options.target
+              sourcemap: resolvedOptions.sourcemap,
+              target: resolvedOptions.target
           })
 
-    return { cwd, options, outDir: target, output }
+    return { cwd, options: resolvedOptions, outDir: target, output }
 }
 
 const prepareNodeBuild = async (plan: NodeBuildPlan): Promise<NodeBuildPreparation> => {

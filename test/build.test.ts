@@ -168,6 +168,31 @@ describe("build", () => {
     })
 
     context("with a bundled Node entry", () => {
+        it("infers bundled output settings from package metadata", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export const greeting: string = "hello"\n')
+            await writeFile(
+                join(directory, "package.json"),
+                JSON.stringify({
+                    exports: {
+                        ".": {
+                            types: "./dist/index.d.ts",
+                            import: "./dist/index.js",
+                            require: "./dist/index.cjs"
+                        }
+                    }
+                })
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { bundle: true })
+
+            await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "index.cjs"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "index.d.ts"))).resolves.toBeUndefined()
+        })
+
         it("emits requested formats and declarations without reading package metadata", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src"), { recursive: true })

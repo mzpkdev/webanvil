@@ -21,7 +21,7 @@ describe("npm-lib", () => {
             await webanvil.test(example)
         }, 60_000)
 
-        it("builds ESM, CommonJS, and declaration outputs", async () => {
+        it("infers ESM, CommonJS, and declaration outputs from package.json", async () => {
             await webanvil(example, "build")
             const output = example
 
