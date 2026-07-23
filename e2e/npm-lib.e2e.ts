@@ -22,7 +22,8 @@ describe("npm-lib", () => {
         }, 60_000)
 
         it("builds ESM, CommonJS, and declaration outputs", async () => {
-            const output = await webanvil.build(example)
+            await webanvil(example, "build")
+            const output = example
 
             await expect(access(join(output, "index.js"))).resolves.toBeUndefined()
             await expect(access(join(output, "index.cjs"))).resolves.toBeUndefined()
@@ -36,6 +37,7 @@ describe("npm-lib", () => {
             expect(hasCJSSyntax(esm)).toBe(false)
             expect(hasCJSSyntax(cjs)).toBe(true)
             expect(findTypeExports(declaration).flatMap((entry) => entry.names)).toContain("greet")
+            expect(esm).toContain("Hello from a plugin")
         }, 60_000)
 
         it("honors bundled library CLI output overrides", async () => {
@@ -55,6 +57,34 @@ describe("npm-lib", () => {
             expect(hasESMSyntax(esm)).toBe(true)
             await expect(access(join(output, "index.cjs"))).rejects.toThrow()
             await expect(access(join(output, "index.d.ts"))).rejects.toThrow()
+        }, 60_000)
+
+        it("cleans recorded bundled outputs without removing source files", async () => {
+            await webanvil(example, "build")
+            const output = example
+            const override = await webanvil.build(
+                example,
+                "cli-dist",
+                "--bundle",
+                "--out-dir",
+                "cli-dist",
+                "--formats",
+                "esm",
+                "--declaration",
+                "false"
+            )
+
+            await webanvil.clean(example)
+
+            await expect(access(join(output, "index.js"))).rejects.toThrow()
+            await expect(access(join(output, "feature.js"))).rejects.toThrow()
+            await expect(access(join(override, "index.js"))).rejects.toThrow()
+            await expect(readFile(join(example, ".webanvil", "buildinfo.json"), "utf8")).resolves.toBe(
+                '{\n  "output": []\n}\n'
+            )
+            await expect(access(join(example, "index.ts"))).resolves.toBeUndefined()
+            await expect(access(join(example, "feature.ts"))).resolves.toBeUndefined()
+            await expect(access(join(example, "package.json"))).resolves.toBeUndefined()
         }, 60_000)
     })
 })

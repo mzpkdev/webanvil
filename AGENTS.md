@@ -26,6 +26,7 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web app or Node module tree
               [--bundle] [--declaration <true|false>] [--formats <esm,cjs>]
               [--sourcemap <true|false>] [--minify <true|false>] [--target <node20|browser|neutral>]
+clean                                                remove files emitted by prior WebAnvil builds
 dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>]
                                                      start a Vite server or Rolldown watcher
 test [filters...] [--environment <environment>]       run Vitest
@@ -89,6 +90,7 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 - Persistent behavior options, such as `mode`, `outDir`, test environment, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options. Test includes remain config-only, matching Vitest.
 - `wa build` is the one build command. Web mode uses Vite; Node mode emits an ESM file tree rooted beside its entry unless `--bundle` is set. Bundled Node output accepts ESM/CJS formats, declarations, and explicit `build.entries` mappings.
+- `wa build` records emitted paths in `.webanvil/buildinfo.json`; `wa clean` removes only those paths and leaves the state file with an empty output list.
 - A configured build entry is the default; an explicit positional entry overrides it.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
 

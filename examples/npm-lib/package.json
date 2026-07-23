@@ -2,8 +2,21 @@
     "name": "webanvil-example-npm-lib",
     "private": true,
     "type": "module",
+    "exports": {
+        ".": {
+            "types": "./index.d.ts",
+            "import": "./index.js",
+            "require": "./index.cjs"
+        },
+        "./feature": {
+            "types": "./feature.d.ts",
+            "import": "./feature.js",
+            "require": "./feature.cjs"
+        }
+    },
     "scripts": {
         "build": "wa build",
+        "clean": "wa clean",
         "format": "wa format",
         "format:check": "wa format --check",
         "lint": "wa lint",
@@ -12,6 +25,7 @@
     },
     "devDependencies": {
         "typescript": "^7.0.2",
+        "unplugin": "^3.3.0",
         "vitest": "^4.1.10",
         "webanvil": "file:../.."
     }

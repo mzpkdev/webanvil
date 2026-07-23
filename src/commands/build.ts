@@ -1,11 +1,13 @@
 import { resolve } from "pathe"
 
 import { defineCommand } from "cmdore"
-import { type PluginOption, build as vite } from "vite"
+import { type InlineConfig, type PluginOption, build as vite, resolveConfig } from "vite"
+import { glob } from "tinyglobby"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
 import { type BuildConfig, withConfig } from "../config"
+import { removeOutputsIn, writeBuildInfo } from "../core/build-info"
 import { applicationInputs, sourceRoot, writeApplicationOutput, writeBundledOutput } from "../core/node-output"
 import { bundle, declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
@@ -16,6 +18,15 @@ type BuildOptions = Pick<
     "bundle" | "declaration" | "entries" | "formats" | "minify" | "sourcemap" | "target"
 >
 
+type WebBuild = { config: InlineConfig; outDir: string; publicDir?: string }
+
+const outputFiles = (result: Awaited<ReturnType<typeof vite>>, outDir: string): string[] => {
+    if ("on" in result) throw new Error("Web builds cannot use watch mode")
+    return (Array.isArray(result) ? result : [result]).flatMap((output) =>
+        output.output.map((file) => resolve(outDir, file.fileName))
+    )
+}
+
 export const build = async (
     mode: "web" | "node",
     entry: string,
@@ -25,19 +36,26 @@ export const build = async (
 ): Promise<void> => {
     logger.start(`Building ${entry}`)
 
-    if (mode === "web") await build.web(entry, outDir, options, plugins)
-    else if (options.bundle) await build.bundle(entry, outDir, options, plugins)
-    else await build.node(entry, outDir, options, plugins)
+    const web = mode === "web" ? await build.webConfig(entry, outDir, options, plugins) : undefined
+    const target = web?.outDir ?? resolve(process.cwd(), outDir)
+    const existing = await removeOutputsIn(target)
+    const output = web
+        ? await build.web(web)
+        : options.bundle
+          ? await build.bundle(entry, outDir, options, plugins)
+          : await build.node(entry, outDir, options, plugins)
+
+    await writeBuildInfo([...existing.output, ...output])
 
     logger.success(`Built ${entry} to ${outDir}`)
 }
 
-build.web = async (entry: string, outDir: string, options: BuildOptions, plugins: WebAnvilPlugin[]): Promise<void> => {
-    if (await hasToolConfig("vite")) {
-        await vite({ root: process.cwd() })
-        return
-    }
-
+build.webConfig = async (
+    entry: string,
+    outDir: string,
+    options: BuildOptions,
+    plugins: WebAnvilPlugin[]
+): Promise<WebBuild> => {
     if (options.formats?.some((format) => format !== "esm")) {
         throw new Error("Web builds only support the esm format")
     }
@@ -45,26 +63,46 @@ build.web = async (entry: string, outDir: string, options: BuildOptions, plugins
         throw new Error("Web builds only support the browser target")
     }
 
-    await vite({
-        root: process.cwd(),
-        // Users select Vite-compatible plugins for web builds in their config.
-        plugins: resolveVitePlugins(plugins) as PluginOption[],
-        build: {
-            outDir: resolve(process.cwd(), outDir),
-            minify: options.minify,
-            sourcemap: options.sourcemap,
-            rolldownOptions: { input: resolve(process.cwd(), entry) }
-        }
-    })
+    const config: InlineConfig = (await hasToolConfig("vite"))
+        ? { root: process.cwd() }
+        : {
+              root: process.cwd(),
+              // Users select Vite-compatible plugins for web builds in their config.
+              plugins: resolveVitePlugins(plugins) as PluginOption[],
+              build: {
+                  outDir: resolve(process.cwd(), outDir),
+                  minify: options.minify,
+                  sourcemap: options.sourcemap,
+                  rolldownOptions: { input: resolve(process.cwd(), entry) }
+              }
+          }
+    const resolved = await resolveConfig(config, "build")
+    return {
+        config,
+        outDir: resolved.build.outDir,
+        publicDir: resolved.build.copyPublicDir ? resolved.publicDir : undefined
+    }
 }
 
-build.node = async (entry: string, outDir: string, options: BuildOptions, plugins: WebAnvilPlugin[]): Promise<void> => {
+build.web = async ({ config, outDir, publicDir }: WebBuild): Promise<string[]> => [
+    ...outputFiles(await vite(config), outDir),
+    ...(publicDir
+        ? (await glob("**/*", { cwd: publicDir, onlyFiles: true, dot: true })).map((file) => resolve(outDir, file))
+        : [])
+]
+
+build.node = async (
+    entry: string,
+    outDir: string,
+    options: BuildOptions,
+    plugins: WebAnvilPlugin[]
+): Promise<string[]> => {
     if (options.declaration) throw new Error("Declarations require --bundle")
     if (options.formats?.some((format) => format !== "esm")) {
         throw new Error("CommonJS output requires --bundle")
     }
 
-    await writeApplicationOutput({
+    return writeApplicationOutput({
         inputs: await applicationInputs(sourceRoot(entry)),
         minify: options.minify,
         outDir: resolve(process.cwd(), outDir),
@@ -80,8 +118,8 @@ build.bundle = async (
     outDir: string,
     options: BuildOptions,
     plugins: WebAnvilPlugin[]
-): Promise<void> => {
-    await writeBundledOutput({
+): Promise<string[]> => {
+    return writeBundledOutput({
         declaration: options.declaration,
         entry,
         entries: options.entries,

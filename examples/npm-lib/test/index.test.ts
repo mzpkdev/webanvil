@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { greet } from "../src/index"
+import { greet } from "../index"
 
 describe("greet", () => {
     it("greets a name", () => {

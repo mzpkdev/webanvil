@@ -4,6 +4,7 @@
     "type": "module",
     "scripts": {
         "build": "wa build",
+        "clean": "wa clean",
         "dev": "wa dev",
         "format": "wa format",
         "format:check": "wa format --check",

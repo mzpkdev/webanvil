@@ -6,6 +6,7 @@ import { afterEach, describe, describe as context, expect, it } from "vitest"
 import { createUnplugin } from "unplugin"
 
 import { build } from "../src/commands/build"
+import { readBuildInfo } from "../src/core/build-info"
 import { definePlugin } from "../src/plugins"
 
 const directories: string[] = []
@@ -28,7 +29,7 @@ afterEach(async () => {
 
 describe("build", () => {
     context("with a Node entry", () => {
-        it("emits a cleaned ESM file tree with rewritten relative imports", async () => {
+        it("emits an ESM file tree with rewritten relative imports", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src", "lib"), { recursive: true })
             await mkdir(join(directory, "dist"), { recursive: true })
@@ -43,9 +44,31 @@ describe("build", () => {
 
             await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
             await expect(access(join(directory, "dist", "lib", "greeting.js"))).resolves.toBeUndefined()
-            await expect(access(join(directory, "dist", "stale.js"))).rejects.toThrow()
+            await expect(readFile(join(directory, "dist", "stale.js"), "utf8")).resolves.toBe("stale\n")
             await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("./lib/greeting.js")
             await expect(readFile(join(directory, "dist", "lib", "greeting.js"), "utf8")).resolves.toContain("goodbye")
+            expect((await readBuildInfo(directory)).output).toEqual([
+                "dist/index.js",
+                "dist/lib/greeting.js",
+                "dist/lib/greeting.js.map"
+            ])
+        })
+
+        it("removes prior recorded outputs without removing unrecorded siblings", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src", "lib"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { greeting } from "./lib/greeting"\n')
+            await writeFile(join(directory, "src", "lib", "greeting.ts"), 'export const greeting = "hello"\n')
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist")
+            await writeFile(join(directory, "dist", "keep.js"), "authored\n")
+            await writeFile(join(directory, "src", "index.ts"), 'export const greeting = "hello"\n')
+            await rm(join(directory, "src", "lib", "greeting.ts"))
+            await build("node", "src/index.ts", "dist")
+
+            await expect(access(join(directory, "dist", "lib", "greeting.js"))).rejects.toThrow()
+            await expect(readFile(join(directory, "dist", "keep.js"), "utf8")).resolves.toBe("authored\n")
         })
     })
 
@@ -65,6 +88,11 @@ describe("build", () => {
             await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
             await expect(access(join(directory, "dist", "index.cjs"))).resolves.toBeUndefined()
             await expect(access(join(directory, "dist", "index.d.ts"))).resolves.toBeUndefined()
+            expect((await readBuildInfo(directory)).output).toEqual([
+                "dist/index.cjs",
+                "dist/index.d.ts",
+                "dist/index.js"
+            ])
         })
 
         it("uses configured entries for multiple public outputs", async () => {
@@ -87,8 +115,10 @@ describe("build", () => {
     context("with a web entry", () => {
         it("passes minification and source map settings to Vite", async () => {
             const directory = await createDirectory()
+            await mkdir(join(directory, "public"))
             await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
             await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "public", "robots.txt"), "User-agent: *\n")
             process.chdir(directory)
 
             await build(
@@ -119,6 +149,10 @@ describe("build", () => {
                     "utf8"
                 )
             ).resolves.toContain("unplugin")
+            const output = (await readBuildInfo(directory)).output
+            expect(output).toContain("dist/index.html")
+            expect(output).toContain("dist/robots.txt")
+            expect(output.some((file) => file.startsWith("dist/assets/"))).toBe(true)
         })
     })
 
@@ -134,6 +168,7 @@ describe("build", () => {
 
             await expect(access(join(directory, "vite-dist", "index.html"))).resolves.toBeUndefined()
             await expect(access(join(directory, "webanvil-dist"))).rejects.toThrow()
+            expect((await readBuildInfo(directory)).output).toContain("vite-dist/index.html")
         })
     })
 })

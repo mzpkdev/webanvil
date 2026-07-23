@@ -48,10 +48,8 @@ export const writeApplicationOutput = async ({
     plugins = [],
     sourcemap,
     target = "node20"
-}: NodeOutputOptions): Promise<void> => {
+}: NodeOutputOptions): Promise<string[]> => {
     if (Object.keys(inputs).length === 0) throw new Error("No application source files found")
-
-    await rm(outDir, { force: true, recursive: true })
 
     const bundle = await rolldown({
         input: inputs,
@@ -62,7 +60,7 @@ export const writeApplicationOutput = async ({
     })
 
     try {
-        await bundle.write({
+        const output = await bundle.write({
             cleanDir: false,
             dir: outDir,
             entryFileNames: "[name].js",
@@ -70,6 +68,7 @@ export const writeApplicationOutput = async ({
             minify,
             sourcemap
         })
+        return output.output.map((file) => resolve(outDir, file.fileName))
     } finally {
         await bundle.close()
     }
@@ -90,12 +89,14 @@ export const bundledInputs = (cwd: string, entry: string, entries?: Record<strin
     return { [defaultEntryName(entry, cwd)]: resolve(cwd, entry) }
 }
 
-const moveDeclarations = async (outDir: string): Promise<void> => {
+const moveDeclarations = async (outDir: string): Promise<{ source: string[]; destination: string[] }> => {
     const sourceDeclarations = resolve(outDir, "src")
     const files = await glob("**/*.d.{ts,mts,cts}", { absolute: true, cwd: sourceDeclarations })
 
+    const destination = files.map((file) => resolve(outDir, relative(sourceDeclarations, file)))
     await Promise.all(files.map((file) => rename(file, resolve(outDir, relative(sourceDeclarations, file)))))
     await rm(sourceDeclarations, { force: true, recursive: true })
+    return { source: files, destination }
 }
 
 export const writeBundledOutput = async ({
@@ -108,12 +109,10 @@ export const writeBundledOutput = async ({
     plugins = [],
     sourcemap,
     target = "node20"
-}: BundleOutputOptions): Promise<void> => {
+}: BundleOutputOptions): Promise<string[]> => {
     const cwd = process.cwd()
     const inputs = bundledInputs(cwd, entry, entries)
     const emitDeclarations = declaration === true
-
-    await rm(outDir, { force: true, recursive: true })
 
     const bundle = await rolldown({
         input: inputs,
@@ -124,8 +123,9 @@ export const writeBundledOutput = async ({
     })
 
     try {
+        const output: string[] = []
         for (const format of formats) {
-            await bundle.write({
+            const result = await bundle.write({
                 cleanDir: false,
                 dir: outDir,
                 entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
@@ -133,10 +133,11 @@ export const writeBundledOutput = async ({
                 minify,
                 sourcemap
             })
+            output.push(...result.output.map((file) => resolve(outDir, file.fileName)))
         }
+        const declarations = emitDeclarations ? await moveDeclarations(outDir) : { source: [], destination: [] }
+        return [...output.filter((file) => !declarations.source.includes(file)), ...declarations.destination]
     } finally {
         await bundle.close()
     }
-
-    if (emitDeclarations) await moveDeclarations(outDir)
 }

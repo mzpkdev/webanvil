@@ -6,6 +6,7 @@
         "webanvil": "bin/webanvil"
     },
     "type": "module",
+    "main": "./dist/index.mjs",
     "scripts": {
         "build": "obuild",
         "pretest": "npm run build",

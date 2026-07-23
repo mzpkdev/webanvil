@@ -71,6 +71,7 @@ webanvil.build = async (cwd: string, outDir = "dist", ...args: string[]): Promis
     await webanvil(cwd, "build", ...args)
     return output
 }
+webanvil.clean = (cwd: string) => webanvil(cwd, "clean")
 webanvil.dev = startWebAnvil
 webanvil.format = (cwd: string) => webanvil(cwd, "format", "--check")
 webanvil.lint = (cwd: string) => webanvil(cwd, "lint")

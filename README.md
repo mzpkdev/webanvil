@@ -39,6 +39,7 @@ WebAnvil puts the common jobs behind `wa`. It uses Vite for web projects, Rolldo
 ```sh
 wa dev        # develop a web app or watch a Node build
 wa build      # build the project
+wa clean      # remove tracked build output
 wa test       # run tests
 wa lint       # lint files
 wa format      # format files
@@ -52,6 +53,7 @@ What it includes
 | -------------------------- | -------------------- | ----------------- |
 | Web builds and development | `wa build`, `wa dev` | Vite              |
 | Node builds and watch mode | `wa build`, `wa dev` | Rolldown          |
+| Tracked output cleanup     | `wa clean`           | WebAnvil          |
 | Tests                      | `wa test`            | Vitest            |
 | Linting                    | `wa lint`            | Oxlint            |
 | Formatting                 | `wa format`          | Oxfmt             |
@@ -75,6 +77,7 @@ Add the scripts you want to `package.json`:
     "scripts": {
         "dev": "wa dev",
         "build": "wa build",
+        "clean": "wa clean",
         "test": "wa test",
         "lint": "wa lint",
         "format": "wa format",
@@ -92,6 +95,7 @@ Run the commands through npm or directly with `wa`:
 ```sh
 npm run dev
 npm run build
+npm run clean
 npm run test
 npm run lint
 npm run format
@@ -147,6 +151,28 @@ export default defineConfig({
 
 `wa dev` watches and rebuilds Node output. It does not run or restart the server process.
 
+### Node build plugins
+
+Node builds use Rolldown. To use a plugin in both web and Node builds, wrap an
+unplugin implementation with `definePlugin()`:
+
+```ts
+import { defineConfig, definePlugin } from "webanvil"
+import { createUnplugin } from "unplugin"
+
+const replace = createUnplugin<{ from: string; to: string }>((options) => ({
+    name: "replace",
+    transform: (code) => code.replace(options.from, options.to)
+}))
+
+export default defineConfig({
+    plugins: [definePlugin(replace, { from: "development", to: "production" })]
+})
+```
+
+Plain Vite plugins work in web mode. Node builds require plugins created with
+`definePlugin()`; raw Rolldown plugins are rejected.
+
 Configuration
 -------------
 
@@ -183,6 +209,10 @@ Command-line options override the config file. For example, this writes a build 
 wa build --out-dir preview
 ```
 
+### Cleaning build output
+
+`wa build` records emitted files in `.webanvil/buildinfo.json`. Run `wa clean` to remove only those files across every build target; source files and other untracked files stay in place. The command leaves `.webanvil/` behind with an empty output list.
+
 Migration
 ---------
 
@@ -195,6 +225,7 @@ Install WebAnvil, then replace the project scripts with the WebAnvil commands:
     "scripts": {
         "dev": "wa dev",
         "build": "wa build",
+        "clean": "wa clean",
         "test": "wa test",
         "lint": "wa lint",
         "format": "wa format",
@@ -215,6 +246,7 @@ Command reference
 | Command                   | Description                                            | Options                                                                                    |
 | ------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. | `--mode`, `--out-dir`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
+| `wa clean`                | Removes files emitted by prior WebAnvil builds.        | No options                                                                                 |
 | `wa dev [entry]`          | Starts a Vite server or a Node build watcher.          | `--mode`, `--out-dir`, `--host`, `--port`                                                  |
 | `wa test [filters...]`    | Runs Vitest once.                                      | `--environment`                                                                            |
 | `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.           | `--fix`                                                                                    |
