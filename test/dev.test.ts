@@ -84,7 +84,7 @@ describe("dev", () => {
             await watching
         })
 
-        it("infers watched library outputs from package metadata", async () => {
+        it("infers watched source-tree outputs from package metadata", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src"), { recursive: true })
             await writeFile(join(directory, "src", "index.ts"), 'export const greeting: string = "hello"\n')
@@ -106,7 +106,7 @@ describe("dev", () => {
             const terminated = new Promise<void>((resolve) => {
                 stop = resolve
             })
-            const watching = dev.node("src/index.ts", "dist", [], () => terminated, { bundle: true })
+            const watching = dev.node("src/index.ts", "dist", [], () => terminated)
 
             try {
                 await waitForFile(join(directory, "dist", "index.js"))

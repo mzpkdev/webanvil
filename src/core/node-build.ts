@@ -1,4 +1,4 @@
-import { dirname, resolve } from "pathe"
+import { dirname, relative, resolve } from "pathe"
 
 import { type OutputBundle, type Plugin as RolldownPlugin, rolldown } from "rolldown"
 
@@ -49,15 +49,12 @@ export const createNodeBuildPlan = async (
     options: NodeBuildOptions,
     plugins: RolldownPlugin[]
 ): Promise<NodeBuildPlan> => {
-    if (!options.bundle && options.declaration) throw new Error("Declarations require --bundle")
-    if (!options.bundle && options.formats?.some((format) => format !== "esm")) {
-        throw new Error("CommonJS output requires --bundle")
-    }
-
     const cwd = process.cwd()
-    const packageOptions = options.bundle ? await resolvePackageOutputOptions(options, cwd) : {}
+    const packageOptions = await resolvePackageOutputOptions(options, cwd)
     const resolvedOptions = { ...options, ...packageOptions }
     const target = resolve(cwd, outDir)
+    const applicationRoot = sourceRoot(entry, cwd)
+    const declarationRoot = resolve(target, relative(cwd, applicationRoot))
     const output = resolvedOptions.bundle
         ? bundledOutputPlan({
               cwd,
@@ -72,7 +69,10 @@ export const createNodeBuildPlan = async (
               target: resolvedOptions.target
           })
         : applicationOutputPlan({
-              inputs: await applicationInputs(sourceRoot(entry, cwd)),
+              declaration: resolvedOptions.declaration,
+              ...(declarationRoot === target ? {} : { declarationSourceDir: declarationRoot }),
+              formats: resolvedOptions.formats,
+              inputs: await applicationInputs(applicationRoot),
               minify: resolvedOptions.minify,
               outDir: target,
               plugins,

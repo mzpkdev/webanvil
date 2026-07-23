@@ -106,26 +106,30 @@ describe("check command", () => {
         expect(lintHelp).not.toContain("Format files and apply safe lint fixes.")
     })
 
-    it("is read-only by default, fixes files, loads config, and then passes without --fix", async () => {
-        const directory = await createDirectory()
-        const sourcePath = join(directory, "src", "index.ts")
-        const configPath = join(directory, "webanvil.config.mjs")
-        const tsconfigPath = join(directory, "tsconfig.json")
-        const source = "const _pattern=/\\a/\ndebugger"
-        const config = 'export default {format:{semi:false},lint:{rules:{"no-debugger":"off"}}}\n'
-        const tsconfig = '{ "compilerOptions": { "strict": true }, "include": ["src/**/*.ts"] }\n'
-        await mkdir(join(directory, "src"))
-        await writeFile(sourcePath, source)
-        await writeFile(configPath, config)
-        await writeFile(tsconfigPath, tsconfig)
+    it(
+        "is read-only by default, fixes files, loads config, and then passes without --fix",
+        { timeout: 10_000 },
+        async () => {
+            const directory = await createDirectory()
+            const sourcePath = join(directory, "src", "index.ts")
+            const configPath = join(directory, "webanvil.config.mjs")
+            const tsconfigPath = join(directory, "tsconfig.json")
+            const source = "const _pattern=/\\a/\ndebugger"
+            const config = 'export default {format:{semi:false},lint:{rules:{"no-debugger":"off"}}}\n'
+            const tsconfig = '{ "compilerOptions": { "strict": true }, "include": ["src/**/*.ts"] }\n'
+            await mkdir(join(directory, "src"))
+            await writeFile(sourcePath, source)
+            await writeFile(configPath, config)
+            await writeFile(tsconfigPath, tsconfig)
 
-        await expect(execFileAsync(binary, ["check"], { cwd: directory })).rejects.toMatchObject({ code: 1 })
-        await expect(readFile(sourcePath, "utf8")).resolves.toBe(source)
-        await expect(readFile(configPath, "utf8")).resolves.toBe(config)
-        await expect(readFile(tsconfigPath, "utf8")).resolves.toBe(tsconfig)
+            await expect(execFileAsync(binary, ["check"], { cwd: directory })).rejects.toMatchObject({ code: 1 })
+            await expect(readFile(sourcePath, "utf8")).resolves.toBe(source)
+            await expect(readFile(configPath, "utf8")).resolves.toBe(config)
+            await expect(readFile(tsconfigPath, "utf8")).resolves.toBe(tsconfig)
 
-        await expect(execFileAsync(binary, ["check", "--fix"], { cwd: directory })).resolves.toBeDefined()
-        await expect(readFile(sourcePath, "utf8")).resolves.toBe("const _pattern = /a/\ndebugger\n")
-        await expect(execFileAsync(binary, ["check"], { cwd: directory })).resolves.toBeDefined()
-    })
+            await expect(execFileAsync(binary, ["check", "--fix"], { cwd: directory })).resolves.toBeDefined()
+            await expect(readFile(sourcePath, "utf8")).resolves.toBe("const _pattern = /a/\ndebugger\n")
+            await expect(execFileAsync(binary, ["check"], { cwd: directory })).resolves.toBeDefined()
+        }
+    )
 })

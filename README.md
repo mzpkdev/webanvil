@@ -162,12 +162,13 @@ export default defineConfig({
 })
 ```
 
-For bundled Node libraries, WebAnvil fills omitted output settings from the
-nearest `package.json`: `import` and `require` export conditions enable ESM and
-CommonJS respectively, while a top-level `types` field or `types` export
-condition enables declarations. Explicit CLI options override
-`webanvil.config.*`, which overrides package metadata, which overrides built-in
-defaults. Package metadata does not affect web or unbundled Node builds.
+For Node builds, WebAnvil fills omitted output settings from the nearest
+`package.json`: `import` and `require` export conditions enable ESM and CommonJS
+respectively, while a top-level `types` field or `types` export condition enables
+declarations. Explicit CLI options override `webanvil.config.*`, which overrides
+package metadata, which overrides built-in defaults. Without `bundle`, every
+source module under the entry directory is emitted in each selected format and
+declarations mirror that file tree. Package metadata does not affect web builds.
 
 `wa dev` watches and rebuilds Node output with the same `build` configuration as
 `wa build`: bundle mode, entries, formats, declarations, source maps,

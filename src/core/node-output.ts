@@ -1,4 +1,4 @@
-import { rename, rm } from "node:fs/promises"
+import { rename, rmdir } from "node:fs/promises"
 import { dirname, relative, resolve } from "pathe"
 
 import {
@@ -12,6 +12,9 @@ import { isolatedDeclarationPlugin } from "rolldown/experimental"
 import { glob } from "tinyglobby"
 
 type NodeOutputOptions = {
+    declaration?: boolean
+    declarationSourceDir?: string
+    formats?: Array<"esm" | "cjs">
     inputs: Record<string, string>
     minify?: boolean
     outDir: string
@@ -30,7 +33,7 @@ type BundleOutputOptions = Omit<NodeOutputOptions, "inputs" | "plugins"> & {
 }
 
 export type NodeOutputPlan = {
-    declarations: boolean
+    declarationSourceDir?: string
     input: InputOptions
     outDir: string
     output: OutputOptions[]
@@ -69,6 +72,9 @@ const commonInput = (
 })
 
 export const applicationOutputPlan = ({
+    declaration,
+    declarationSourceDir,
+    formats = ["esm"],
     inputs,
     minify,
     outDir,
@@ -78,23 +84,28 @@ export const applicationOutputPlan = ({
 }: NodeOutputOptions): NodeOutputPlan => {
     if (Object.keys(inputs).length === 0) throw new Error("No application source files found")
 
+    const emitDeclarations = declaration === true
     return {
-        declarations: false,
-        input: { input: inputs, ...commonInput(plugins, target) },
+        ...(emitDeclarations && declarationSourceDir ? { declarationSourceDir } : {}),
+        input: {
+            input: inputs,
+            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], target)
+        },
         outDir,
-        output: [
-            {
-                cleanDir: false,
-                dir: outDir,
-                entryFileNames: "[name].js",
-                format: "es",
-                minify,
-                sourcemap
-            }
-        ],
+        output: formats.map((format) => ({
+            cleanDir: false,
+            dir: outDir,
+            entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
+            format: format === "esm" ? "es" : "cjs",
+            minify,
+            sourcemap
+        })),
         predictedOutput: Object.keys(inputs).flatMap((file) => {
-            const output = resolve(outDir, `${file}.js`)
-            return sourcemap ? [output, `${output}.map`] : [output]
+            const output = formats.flatMap((format) => {
+                const path = resolve(outDir, `${file}.${format === "esm" ? "js" : "cjs"}`)
+                return sourcemap ? [path, `${path}.map`] : [path]
+            })
+            return emitDeclarations ? [...output, resolve(outDir, `${file}.d.ts`)] : output
         })
     }
 }
@@ -124,13 +135,30 @@ export const bundledInputs = (cwd: string, entry: string, entries?: Record<strin
     return { [defaultEntryName(entry, cwd)]: resolve(cwd, entry) }
 }
 
-const moveDeclarations = async (outDir: string): Promise<{ source: string[]; destination: string[] }> => {
-    const sourceDeclarations = resolve(outDir, "src")
+const moveDeclarations = async (
+    sourceDeclarations: string,
+    outDir: string
+): Promise<{ source: string[]; destination: string[] }> => {
     const files = await glob("**/*.d.{ts,mts,cts}", { absolute: true, cwd: sourceDeclarations })
 
     const destination = files.map((file) => resolve(outDir, relative(sourceDeclarations, file)))
     await Promise.all(files.map((file) => rename(file, resolve(outDir, relative(sourceDeclarations, file)))))
-    await rm(sourceDeclarations, { force: true, recursive: true })
+    const directories = new Set<string>()
+    for (const file of files) {
+        let directory = dirname(file)
+        while (true) {
+            directories.add(directory)
+            if (directory === sourceDeclarations) break
+            directory = dirname(directory)
+        }
+    }
+    for (const directory of [...directories].sort((left, right) => right.length - left.length)) {
+        try {
+            await rmdir(directory)
+        } catch (error) {
+            if (!["ENOENT", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error
+        }
+    }
     return { source: files, destination }
 }
 
@@ -148,7 +176,7 @@ export const bundledOutputPlan = ({
 }: BundleOutputOptions): NodeOutputPlan => {
     const emitDeclarations = declaration === true
     return {
-        declarations: emitDeclarations,
+        ...(emitDeclarations ? { declarationSourceDir: resolve(outDir, "src") } : {}),
         input: {
             input: bundledInputs(cwd, entry, entries),
             ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], target)
@@ -167,7 +195,9 @@ export const bundledOutputPlan = ({
 }
 
 export const normalizeNodeOutput = async (plan: NodeOutputPlan, output: string[]): Promise<string[]> => {
-    const declarations = plan.declarations ? await moveDeclarations(plan.outDir) : { source: [], destination: [] }
+    const declarations = plan.declarationSourceDir
+        ? await moveDeclarations(plan.declarationSourceDir, plan.outDir)
+        : { source: [], destination: [] }
     return [...output.filter((file) => !declarations.source.includes(file)), ...declarations.destination]
 }
 

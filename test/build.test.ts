@@ -149,6 +149,61 @@ describe("build", () => {
             ])
         })
 
+        it("infers dual-format source trees and declarations from package metadata", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src", "lib"), { recursive: true })
+            await mkdir(join(directory, "dist", "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { greeting } from "./lib/greeting"\n')
+            await writeFile(join(directory, "src", "lib", "greeting.ts"), 'export const greeting: string = "hello"\n')
+            await writeFile(
+                join(directory, "package.json"),
+                JSON.stringify({
+                    exports: {
+                        ".": {
+                            types: "./dist/index.d.ts",
+                            import: "./dist/index.js",
+                            require: "./dist/index.cjs"
+                        }
+                    }
+                })
+            )
+            await writeFile(join(directory, "dist", "src", "keep.txt"), "keep\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist")
+
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("./lib/greeting.js")
+            await expect(readFile(join(directory, "dist", "index.cjs"), "utf8")).resolves.toContain(
+                "./lib/greeting.cjs"
+            )
+            await expect(access(join(directory, "dist", "index.d.ts"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "lib", "greeting.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "lib", "greeting.cjs"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "lib", "greeting.d.ts"))).resolves.toBeUndefined()
+            await expect(readFile(join(directory, "dist", "src", "keep.txt"), "utf8")).resolves.toBe("keep\n")
+            expect((await readBuildInfo(directory)).output).toEqual([
+                "dist/index.cjs",
+                "dist/index.d.ts",
+                "dist/index.js",
+                "dist/lib/greeting.cjs",
+                "dist/lib/greeting.d.ts",
+                "dist/lib/greeting.js"
+            ])
+        })
+
+        it("emits explicitly requested source-tree formats and declarations", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export const greeting: string = "hello"\n')
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { declaration: true, formats: ["cjs"] })
+
+            await expect(access(join(directory, "dist", "index.cjs"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "index.d.ts"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "index.js"))).rejects.toThrow()
+        })
+
         it("removes prior recorded outputs without removing unrecorded siblings", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src", "lib"), { recursive: true })
