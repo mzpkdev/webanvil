@@ -17,6 +17,7 @@ export default {
         mode: "node",
         entry: "src/server.ts",
         outDir: "dist",
+        copy: [{ from: "src/templates/**", to: "templates" }],
         sourcemap: true,
         minify: true,
         target: "node20"

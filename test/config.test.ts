@@ -66,7 +66,7 @@ describe("loadConfig", () => {
             const directory = await createDirectory()
             await writeFile(
                 join(directory, "webanvil.config.ts"),
-                'export default { build: { outDir: "output", declaration: true, sourcemap: true, minify: false, formats: ["esm", "cjs"], target: "node20" }, format: { tabWidth: 4 }, lint: { rules: { "no-console": "deny" } }, test: { environment: "jsdom", include: ["test/**/*.test.ts"] } }'
+                'export default { build: { outDir: "output", declaration: true, copy: [{ from: "assets/**", to: "assets" }], sourcemap: true, minify: false, formats: ["esm", "cjs"], target: "node20" }, format: { tabWidth: 4 }, lint: { rules: { "no-console": "deny" } }, test: { environment: "jsdom", include: ["test/**/*.test.ts"] } }'
             )
 
             await expect(loadConfig(directory)).resolves.toMatchObject({
@@ -76,6 +76,7 @@ describe("loadConfig", () => {
                         entry: "src/index.ts",
                         outDir: "output",
                         declaration: true,
+                        copy: [{ from: "assets/**", to: "assets" }],
                         sourcemap: true,
                         minify: false,
                         formats: ["esm", "cjs"],

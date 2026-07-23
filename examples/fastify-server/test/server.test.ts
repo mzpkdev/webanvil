@@ -19,4 +19,13 @@ describe("Fastify server", () => {
         expect(response.statusCode).toBe(200)
         expect(response.json()).toEqual({ status: "ok" })
     })
+
+    it("renders the welcome template", async () => {
+        server = createServer()
+
+        const response = await server.inject({ method: "GET", url: "/welcome" })
+
+        expect(response.statusCode).toBe(200)
+        expect(response.body).toBe("Welcome to WebAnvil!\n")
+    })
 })

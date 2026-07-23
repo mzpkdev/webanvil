@@ -2,10 +2,11 @@ import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:f
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
+import { execute } from "cmdore"
 import { afterEach, describe, describe as context, expect, it } from "vitest"
 import { createUnplugin } from "unplugin"
 
-import { build } from "../src/commands/build"
+import buildCommand, { build } from "../src/commands/build"
 import { readBuildInfo } from "../src/core/build-info"
 import { definePlugin } from "../src/plugins"
 
@@ -28,7 +29,101 @@ afterEach(async () => {
 })
 
 describe("build", () => {
+    context("with --copy", () => {
+        it("keeps configured mappings when the option is absent", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export {}\n")
+            await writeFile(join(directory, "assets", "configured.txt"), "configured\n")
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { copy: [{ from: "assets/**", to: "assets" }] } }'
+            )
+            process.chdir(directory)
+
+            await execute([buildCommand], {
+                argv: ["build"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+
+            await expect(access(join(directory, "dist", "assets", "configured.txt"))).resolves.toBeUndefined()
+        })
+
+        it("replaces configured mappings and accepts multiple values", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await mkdir(join(directory, "templates"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export {}\n")
+            await writeFile(join(directory, "assets", "configured.txt"), "configured\n")
+            await writeFile(join(directory, "templates", "page.txt"), "template\n")
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { copy: [{ from: "assets/**", to: "assets" }] } }'
+            )
+            process.chdir(directory)
+
+            await execute([buildCommand], {
+                argv: ["build", "--copy", "templates/**=templates", "assets/**=configured"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+
+            await expect(access(join(directory, "dist", "templates", "page.txt"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "configured", "configured.txt"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "assets", "configured.txt"))).rejects.toThrow()
+        })
+    })
+
     context("with a Node entry", () => {
+        it("copies static files and records them as build output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "assets", "images"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export {}\n")
+            await writeFile(join(directory, "assets", "images", "logo.txt"), "logo\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { copy: [{ from: "assets/**", to: "assets" }] })
+
+            await expect(readFile(join(directory, "dist", "assets", "images", "logo.txt"), "utf8")).resolves.toBe(
+                "logo\n"
+            )
+            expect((await readBuildInfo(directory)).output).toEqual(["dist/assets/images/logo.txt", "dist/index.js"])
+        })
+
+        it("rejects copied paths that collide with generated output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export {}\n")
+            await writeFile(join(directory, "assets", "index.js"), "copied\n")
+            process.chdir(directory)
+
+            await expect(
+                build("node", "src/index.ts", "dist", { copy: [{ from: "assets/index.js", to: "." }] })
+            ).rejects.toThrow("collides with generated output")
+            await expect(access(join(directory, "dist", "index.js"))).rejects.toThrow()
+        })
+
+        it("does not overwrite untracked output files", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await mkdir(join(directory, "dist", "assets"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export {}\n")
+            await writeFile(join(directory, "assets", "logo.txt"), "copied\n")
+            await writeFile(join(directory, "dist", "assets", "logo.txt"), "keep\n")
+            process.chdir(directory)
+
+            await expect(
+                build("node", "src/index.ts", "dist", { copy: [{ from: "assets/**", to: "assets" }] })
+            ).rejects.toThrow("already exists")
+            await expect(readFile(join(directory, "dist", "assets", "logo.txt"), "utf8")).resolves.toBe("keep\n")
+        })
+
         it("emits an ESM file tree with rewritten relative imports", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src", "lib"), { recursive: true })
@@ -113,6 +208,106 @@ describe("build", () => {
     })
 
     context("with a web entry", () => {
+        it("retains Vite output cleanup when no static copies are configured", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "dist"), { recursive: true })
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "dist", "stale.txt"), "stale\n")
+            process.chdir(directory)
+
+            await build("web", "index.html", "dist")
+
+            await expect(access(join(directory, "dist", "stale.txt"))).rejects.toThrow()
+        })
+
+        it("does not overwrite untracked output files", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await mkdir(join(directory, "dist", "assets"), { recursive: true })
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "assets", "logo.txt"), "copied\n")
+            await writeFile(join(directory, "dist", "assets", "logo.txt"), "keep\n")
+            process.chdir(directory)
+
+            await expect(
+                build("web", "index.html", "dist", { copy: [{ from: "assets/**", to: "assets" }] })
+            ).rejects.toThrow("already exists")
+            await expect(readFile(join(directory, "dist", "assets", "logo.txt"), "utf8")).resolves.toBe("keep\n")
+        })
+
+        it("rejects Vite configs that re-enable output cleanup", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await mkdir(join(directory, "dist", "assets"), { recursive: true })
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "assets", "logo.txt"), "copied\n")
+            await writeFile(join(directory, "dist", "assets", "logo.txt"), "keep\n")
+            await writeFile(
+                join(directory, "vite.config.ts"),
+                "export default { plugins: [{ name: 'enable-output-cleanup', config: () => ({ build: { emptyOutDir: true } }) }] }"
+            )
+            process.chdir(directory)
+
+            await expect(
+                build("web", "index.html", "dist", { copy: [{ from: "assets/**", to: "assets" }] })
+            ).rejects.toThrow("build.emptyOutDir")
+            await expect(readFile(join(directory, "dist", "assets", "logo.txt"), "utf8")).resolves.toBe("keep\n")
+        })
+
+        it("does not overwrite untracked output files copied from Vite public", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await mkdir(join(directory, "public"), { recursive: true })
+            await mkdir(join(directory, "dist"), { recursive: true })
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "assets", "robots.txt"), "copied\n")
+            await writeFile(join(directory, "public", "robots.txt"), "public\n")
+            await writeFile(join(directory, "dist", "robots.txt"), "keep\n")
+            process.chdir(directory)
+
+            await expect(
+                build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+            ).rejects.toThrow("collides with generated output")
+            await expect(readFile(join(directory, "dist", "robots.txt"), "utf8")).resolves.toBe("keep\n")
+        })
+
+        it("rejects a Vite public collision before replacing prior copied output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await mkdir(join(directory, "public"), { recursive: true })
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "assets", "robots.txt"), "copied\n")
+            process.chdir(directory)
+
+            await build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+            await writeFile(join(directory, "public", "robots.txt"), "public\n")
+
+            await expect(
+                build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+            ).rejects.toThrow("collides with generated output")
+            await expect(readFile(join(directory, "dist", "robots.txt"), "utf8")).resolves.toBe("copied\n")
+        })
+
+        it("rejects copied paths that collide with Vite public output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await mkdir(join(directory, "public"), { recursive: true })
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            await writeFile(join(directory, "assets", "robots.txt"), "copied\n")
+            await writeFile(join(directory, "public", "robots.txt"), "public\n")
+            process.chdir(directory)
+
+            await expect(
+                build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+            ).rejects.toThrow("collides with generated output")
+        })
+
         it("passes minification and source map settings to Vite", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "public"))

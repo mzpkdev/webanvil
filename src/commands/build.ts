@@ -9,16 +9,17 @@ import { hasToolConfig } from "../config-files"
 import { type BuildConfig, withConfig } from "../config"
 import { removeOutputsIn, writeBuildInfo } from "../core/build-info"
 import { applicationInputs, sourceRoot, writeApplicationOutput, writeBundledOutput } from "../core/node-output"
-import { bundle, declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
+import { assertStaticCopyDestinationsAvailable, copyStaticFiles, planStaticCopies } from "../core/static-copy"
+import { bundle, copy, declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
 type BuildOptions = Pick<
     BuildConfig,
-    "bundle" | "declaration" | "entries" | "formats" | "minify" | "sourcemap" | "target"
+    "bundle" | "copy" | "declaration" | "entries" | "formats" | "minify" | "sourcemap" | "target"
 >
 
-type WebBuild = { config: InlineConfig; outDir: string; publicDir?: string }
+type WebBuild = { config: InlineConfig; emptyOutDir: boolean; outDir: string; publicDir?: string }
 
 const outputFiles = (result: Awaited<ReturnType<typeof vite>>, outDir: string): string[] => {
     if ("on" in result) throw new Error("Web builds cannot use watch mode")
@@ -38,14 +39,23 @@ export const build = async (
 
     const web = mode === "web" ? await build.webConfig(entry, outDir, options, plugins) : undefined
     const target = web?.outDir ?? resolve(process.cwd(), outDir)
+    const copies = await planStaticCopies(options.copy, target)
+    if (web?.emptyOutDir && copies.length > 0) {
+        throw new Error("Vite build.emptyOutDir must be false when using static copy mappings")
+    }
+    const publicOutput = web ? await build.publicOutputFiles(web) : []
+    const predictedOutput = web ? publicOutput : await build.nodeOutputFiles(entry, target, options)
+    await assertStaticCopyDestinationsAvailable(copies, predictedOutput, false)
     const existing = await removeOutputsIn(target)
+    await assertStaticCopyDestinationsAvailable(copies)
     const output = web
         ? await build.web(web)
         : options.bundle
           ? await build.bundle(entry, outDir, options, plugins)
           : await build.node(entry, outDir, options, plugins)
 
-    await writeBuildInfo([...existing.output, ...output])
+    const copied = await copyStaticFiles(copies, output)
+    await writeBuildInfo([...existing.output, ...output, ...copied])
 
     logger.success(`Built ${entry} to ${outDir}`)
 }
@@ -63,13 +73,15 @@ build.webConfig = async (
         throw new Error("Web builds only support the browser target")
     }
 
+    const preserveOutput = options.copy != null && options.copy.length > 0
     const config: InlineConfig = (await hasToolConfig("vite"))
-        ? { root: process.cwd() }
+        ? { root: process.cwd(), ...(preserveOutput ? { build: { emptyOutDir: false } } : {}) }
         : {
               root: process.cwd(),
               // Users select Vite-compatible plugins for web builds in their config.
               plugins: resolveVitePlugins(plugins) as PluginOption[],
               build: {
+                  ...(preserveOutput ? { emptyOutDir: false } : {}),
                   outDir: resolve(process.cwd(), outDir),
                   minify: options.minify,
                   sourcemap: options.sourcemap,
@@ -79,16 +91,30 @@ build.webConfig = async (
     const resolved = await resolveConfig(config, "build")
     return {
         config,
+        emptyOutDir: resolved.build.emptyOutDir === true,
         outDir: resolved.build.outDir,
         publicDir: resolved.build.copyPublicDir ? resolved.publicDir : undefined
     }
 }
 
-build.web = async ({ config, outDir, publicDir }: WebBuild): Promise<string[]> => [
-    ...outputFiles(await vite(config), outDir),
-    ...(publicDir
+build.publicOutputFiles = async ({ outDir, publicDir }: WebBuild): Promise<string[]> =>
+    publicDir
         ? (await glob("**/*", { cwd: publicDir, onlyFiles: true, dot: true })).map((file) => resolve(outDir, file))
-        : [])
+        : []
+
+build.nodeOutputFiles = async (entry: string, outDir: string, options: BuildOptions): Promise<string[]> => {
+    if (options.bundle) return []
+
+    const inputs = await applicationInputs(sourceRoot(entry))
+    return Object.keys(inputs).flatMap((file) => {
+        const output = resolve(outDir, `${file}.js`)
+        return options.sourcemap ? [output, `${output}.map`] : [output]
+    })
+}
+
+build.web = async (web: WebBuild): Promise<string[]> => [
+    ...outputFiles(await vite(web.config), web.outDir),
+    ...(await build.publicOutputFiles(web))
 ]
 
 build.node = async (
@@ -135,11 +161,11 @@ build.bundle = async (
 export default defineCommand({
     name: "build",
     arguments: [entry],
-    options: [mode, outDir, bundle, declaration, sourcemap, minify, formats, target],
+    options: [mode, outDir, bundle, copy, declaration, sourcemap, minify, formats, target],
     run: withConfig(
         (config) => config.build,
         (
-            { bundle, declaration, formats, minify, mode, entry, "out-dir": outDir, sourcemap, target },
+            { bundle, copy, declaration, formats, minify, mode, entry, "out-dir": outDir, sourcemap, target },
             _buildConfig,
             resolvedConfig
         ) =>
@@ -149,6 +175,7 @@ export default defineCommand({
                 outDir,
                 {
                     bundle: bundle || _buildConfig.bundle,
+                    copy,
                     declaration,
                     entries: _buildConfig.entries,
                     formats,

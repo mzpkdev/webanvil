@@ -1,5 +1,6 @@
 import { access, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 
 import { hasCJSSyntax, hasESMSyntax } from "mlly"
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
@@ -34,6 +35,18 @@ describe("fastify-server", () => {
             const output = await webanvil.build(example)
 
             await expect(access(join(output, "server.js"))).resolves.toBeUndefined()
+            await expect(readFile(join(output, "templates", "welcome.txt"), "utf8")).resolves.toBe(
+                "Welcome to WebAnvil!\n"
+            )
+            const { createServer } = await import(pathToFileURL(join(output, "server.js")).href)
+            const server = createServer()
+
+            try {
+                const response = await server.inject({ method: "GET", url: "/welcome" })
+                expect(response.body).toBe("Welcome to WebAnvil!\n")
+            } finally {
+                await server.close()
+            }
         }, 60_000)
 
         it("honors Node CLI output overrides and emits an ESM module", async () => {

@@ -6,6 +6,11 @@ import { z } from "zod"
 
 import { isWebAnvilPlugin, type WebAnvilPlugin } from "./plugins"
 
+export const copyMappingSchema = z.strictObject({
+    from: z.string().min(1),
+    to: z.string().min(1)
+})
+
 export const buildConfigSchema = z.strictObject({
     bundle: z.boolean().optional(),
     mode: z.enum(["web", "node"]).optional(),
@@ -15,6 +20,7 @@ export const buildConfigSchema = z.strictObject({
     declaration: z.boolean().optional(),
     sourcemap: z.boolean().optional(),
     minify: z.boolean().optional(),
+    copy: z.array(copyMappingSchema).optional(),
     formats: z
         .array(z.enum(["esm", "cjs"]))
         .min(1)
@@ -51,6 +57,7 @@ export const userConfigSchema = z.strictObject({
 })
 
 export type BuildConfig = z.infer<typeof buildConfigSchema>
+export type CopyMapping = z.infer<typeof copyMappingSchema>
 export type FormatConfig = OxfmtConfig
 export type LintConfig = OxlintConfig
 export type TestConfig = z.infer<typeof testConfigSchema>

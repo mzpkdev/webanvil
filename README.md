@@ -113,7 +113,8 @@ export default defineConfig({
     build: {
         mode: "web",
         entry: "index.html",
-        outDir: "dist"
+        outDir: "dist",
+        copy: [{ from: "assets/**", to: "assets" }]
     }
 })
 ```
@@ -209,9 +210,23 @@ Command-line options override the config file. For example, this writes a build 
 wa build --out-dir preview
 ```
 
+Use `build.copy` for static files that should be copied unchanged after either a
+web or Node build. Each mapping preserves the path beneath the source glob's
+static base. For example, `assets/**` mapped to `assets` copies
+`assets/images/logo.svg` to `dist/assets/images/logo.svg`. `--copy` accepts one
+or more `source=destination` mappings and replaces configured mappings for that
+build:
+
+```sh
+wa build --copy "assets/**=assets" "src/templates/**=templates"
+```
+
+Web builds keep Vite's `publicDir` behavior unchanged. Do not use `copy` for
+assets imported by application code; Vite continues to manage those assets.
+
 ### Cleaning build output
 
-`wa build` records emitted files in `.webanvil/buildinfo.json`. Run `wa clean` to remove only those files across every build target; source files and other untracked files stay in place. The command leaves `.webanvil/` behind with an empty output list.
+`wa build` records emitted and copied files in `.webanvil/buildinfo.json`. Run `wa clean` to remove only those files across every build target; source files and other untracked files stay in place. The command leaves `.webanvil/` behind with an empty output list.
 
 Migration
 ---------
@@ -243,14 +258,14 @@ That lets a project standardize on `wa` now and move settings into `webanvil.con
 Command reference
 -----------------
 
-| Command                   | Description                                            | Options                                                                                    |
-| ------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. | `--mode`, `--out-dir`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
-| `wa clean`                | Removes files emitted by prior WebAnvil builds.        | No options                                                                                 |
-| `wa dev [entry]`          | Starts a Vite server or a Node build watcher.          | `--mode`, `--out-dir`, `--host`, `--port`                                                  |
-| `wa test [filters...]`    | Runs Vitest once.                                      | `--environment`                                                                            |
-| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.           | `--fix`                                                                                    |
-| `wa format [paths...]`    | Formats with Oxfmt.                                    | `--check`                                                                                  |
-| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                    | No options                                                                                 |
+| Command                   | Description                                            | Options                                                                                              |
+| ------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. | `--mode`, `--out-dir`, `--copy`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
+| `wa clean`                | Removes files emitted by prior WebAnvil builds.        | No options                                                                                           |
+| `wa dev [entry]`          | Starts a Vite server or a Node build watcher.          | `--mode`, `--out-dir`, `--host`, `--port`                                                            |
+| `wa test [filters...]`    | Runs Vitest once.                                      | `--environment`                                                                                      |
+| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.           | `--fix`                                                                                              |
+| `wa format [paths...]`    | Formats with Oxfmt.                                    | `--check`                                                                                            |
+| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                    | No options                                                                                           |
 
 Run `wa <command> --help` for the complete reference for a command.

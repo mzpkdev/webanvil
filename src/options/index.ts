@@ -1,5 +1,6 @@
 export { bundle } from "./bundle"
 export { check } from "./check"
+export { copy } from "./copy"
 export { declaration } from "./declaration"
 export { environment } from "./environment"
 export { formats } from "./formats"
