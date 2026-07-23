@@ -67,7 +67,7 @@ describe("wc-spa", () => {
 
             try {
                 await waitFor(
-                    async () => (await fetch("http://127.0.0.1:51204/__vitest__/")).ok,
+                    async () => (await fetch("http://localhost:51204/__vitest__/")).ok,
                     `Vitest UI did not start:\n${ui.output()}`
                 )
             } finally {
