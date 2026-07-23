@@ -96,6 +96,7 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 ## Test conventions
 
+- `npm test` builds the CLI through its `pretest` hook, so the `bin/webanvil` binary is available to integration tests.
 - Unit suites live in `test/` with the `.test.ts` extension; end-to-end suites live in `e2e/` with the `.e2e.ts` extension.
 - Use `describe` for the subject and `context` for nested conditions. Import the latter with `describe as context` from Vitest.
 - Write examples in RSpec-style language: `context("with ...")` and `it("...")`.

@@ -1,4 +1,4 @@
-import { lstat, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
+import { lstat, mkdir, readFile, rename, rm, rmdir, writeFile } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve } from "pathe"
 
 export type BuildInfo = { output: string[] }
@@ -77,6 +77,19 @@ export const removeOutputsIn = async (outDir: string, cwd = process.cwd()): Prom
     })
 
     await removeBuildOutputs(output, cwd)
+    await Promise.all(
+        [...new Set(output.map((file) => dirname(resolve(cwd, file))))].map(async (directory) => {
+            while (directory !== resolve(cwd) && directory !== resolve(cwd, outDir)) {
+                try {
+                    await rmdir(directory)
+                } catch (error) {
+                    if (!["ENOENT", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error
+                    break
+                }
+                directory = dirname(directory)
+            }
+        })
+    )
     return { output: info.output.filter((file) => !output.includes(file)) }
 }
 

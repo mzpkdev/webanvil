@@ -33,13 +33,15 @@ describe("build info", () => {
 
     it("removes only outputs within a target directory", async () => {
         const directory = await createDirectory()
-        await mkdir(join(directory, "dist"))
-        await writeFile(join(directory, "dist", "index.js"), "generated\n")
-        await writeBuildInfo(["dist/index.js", "other/index.js"], directory)
+        await mkdir(join(directory, "dist", "utils"), { recursive: true })
+        await writeFile(join(directory, "dist", "utils", "helpers.js"), "generated\n")
+        await writeBuildInfo(["dist/utils/helpers.js", "other/index.js"], directory)
 
         await expect(removeOutputsIn("dist", directory)).resolves.toEqual({
             output: ["other/index.js"]
         })
+        await expect(readFile(join(directory, "dist", "utils", "helpers.js"))).rejects.toThrow()
+        await expect(readFile(join(directory, "dist", "utils"))).rejects.toThrow()
     })
 
     it("refuses to remove an output through a symbolic link", async () => {
@@ -48,6 +50,18 @@ describe("build info", () => {
         await writeFile(join(external, "important.txt"), "keep\n")
         await symlink(external, join(directory, "dist"))
         await writeBuildInfo(["dist/important.txt"], directory)
+
+        await expect(removeOutputsIn("dist", directory)).rejects.toThrow("symbolic link")
+        await expect(readFile(join(external, "important.txt"), "utf8")).resolves.toBe("keep\n")
+    })
+
+    it("refuses to remove an output through a nested symbolic link", async () => {
+        const directory = await createDirectory()
+        const external = await createDirectory()
+        await mkdir(join(directory, "dist", "safe"), { recursive: true })
+        await writeFile(join(external, "important.txt"), "keep\n")
+        await symlink(external, join(directory, "dist", "safe", "link"))
+        await writeBuildInfo(["dist/safe/link/important.txt"], directory)
 
         await expect(removeOutputsIn("dist", directory)).rejects.toThrow("symbolic link")
         await expect(readFile(join(external, "important.txt"), "utf8")).resolves.toBe("keep\n")
