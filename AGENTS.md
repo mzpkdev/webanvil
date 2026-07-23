@@ -26,6 +26,7 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web app or Node module tree
               [--copy <source=destination...>] [--bundle] [--declaration <true|false>] [--formats <esm,cjs>]
               [--sourcemap <true|false>] [--minify <true|false>] [--target <node20|browser|neutral>]
+check [--fix]                                        check formatting, linting, and types; optionally fix files
 clean                                                remove files emitted by prior WebAnvil builds
 dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>]
             [--copy <source=destination...>] [--bundle] [--declaration <true|false>] [--formats <esm,cjs>]
@@ -100,6 +101,7 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 - `wa build` records emitted and statically copied paths in `.webanvil/buildinfo.json`; `wa clean` removes only those paths and leaves the state file with an empty output list.
 - A configured build entry is the default; an explicit positional entry overrides it.
 - `wa preview` serves the resolved web build output through Vite. `--host`, `--port`, `--out-dir`, and `--open` are run-specific CLI overrides.
+- `wa check` runs formatting, linting, and type checking sequentially and stops on the first failure. It is read-only by default; `--fix` writes formatting changes and applies safe lint fixes. It never runs tests.
 - `wa test` runs once by default; `--watch`, `--coverage`, and `--ui` are CLI-only Vitest modes. `--ui-port` selects a strict loopback port and requires `--ui`. Keep persistent advanced testing configuration in `vitest.config.*`.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
 
@@ -133,7 +135,7 @@ src/
   main.ts          parse argv, delegate to cmdore
   config.ts        UserConfig, ResolvedConfig, loadConfig()
   tools.ts         shared consola logger
-  commands/        build, dev, test, lint, and format commands
+  commands/        build, check, dev, test, lint, format, and typecheck commands
   arguments/       positional command arguments
   options/         shared command options
 ```

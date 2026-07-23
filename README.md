@@ -41,6 +41,8 @@ wa dev        # develop a web app or watch a Node build
 wa build      # build the project
 wa preview    # serve the production web build
 wa clean      # remove tracked build output
+wa check      # check formatting, linting, and types
+wa check --fix # format files and apply safe lint fixes before type checking
 wa test       # run tests, watch them, collect coverage, or open the UI
 wa lint       # lint files
 wa format      # format files
@@ -50,15 +52,16 @@ wa typecheck   # type-check the project
 What it includes
 ----------------
 
-| Project job                | WebAnvil command                   | Tool              |
-| -------------------------- | ---------------------------------- | ----------------- |
-| Web builds and development | `wa build`, `wa dev`, `wa preview` | Vite              |
-| Node builds and watch mode | `wa build`, `wa dev`               | Rolldown          |
-| Tracked output cleanup     | `wa clean`                         | WebAnvil          |
-| Tests                      | `wa test`                          | Vitest            |
-| Linting                    | `wa lint`                          | Oxlint            |
-| Formatting                 | `wa format`                        | Oxfmt             |
-| Type checking              | `wa typecheck`                     | TypeScript Native |
+| Project job                | WebAnvil command                   | Tool                             |
+| -------------------------- | ---------------------------------- | -------------------------------- |
+| Web builds and development | `wa build`, `wa dev`, `wa preview` | Vite                             |
+| Node builds and watch mode | `wa build`, `wa dev`               | Rolldown                         |
+| Tracked output cleanup     | `wa clean`                         | WebAnvil                         |
+| Static checks              | `wa check`                         | Oxfmt, Oxlint, TypeScript Native |
+| Tests                      | `wa test`                          | Vitest                           |
+| Linting                    | `wa lint`                          | Oxlint                           |
+| Formatting                 | `wa format`                        | Oxfmt                            |
+| Type checking              | `wa typecheck`                     | TypeScript Native                |
 
 Getting started
 ---------------
@@ -79,6 +82,7 @@ Add the scripts you want to `package.json`:
         "dev": "wa dev",
         "build": "wa build",
         "clean": "wa clean",
+        "check": "wa check",
         "test": "wa test",
         "lint": "wa lint",
         "format": "wa format",
@@ -97,11 +101,17 @@ Run the commands through npm or directly with `wa`:
 npm run dev
 npm run build
 npm run clean
+npm run check
 npm run test
 npm run lint
 npm run format
 npm run typecheck
 ```
+
+`wa check` checks formatting, linting, and types sequentially, stopping on the
+first failure. It is read-only by default. Use `wa check --fix` to format files
+and apply safe lint fixes before type checking. Tests stay separate under
+`wa test`.
 
 ### A web app
 
@@ -276,6 +286,7 @@ Install WebAnvil, then replace the project scripts with the WebAnvil commands:
         "dev": "wa dev",
         "build": "wa build",
         "clean": "wa clean",
+        "check": "wa check",
         "test": "wa test",
         "lint": "wa lint",
         "format": "wa format",
@@ -293,15 +304,16 @@ That lets a project standardize on `wa` now and move settings into `webanvil.con
 Command reference
 -----------------
 
-| Command                   | Description                                            | Options                                                                                                                              |
-| ------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target`                     |
-| `wa clean`                | Removes files emitted by prior WebAnvil builds.        | No options                                                                                                                           |
-| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.     | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
-| `wa preview`              | Serves a Vite production build.                        | `--out-dir`, `--host`, `--port`, `--open`                                                                                            |
-| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI. | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                        |
-| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.           | `--fix`                                                                                                                              |
-| `wa format [paths...]`    | Formats with Oxfmt.                                    | `--check`                                                                                                                            |
-| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                    | No options                                                                                                                           |
+| Command                   | Description                                                           | Options                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode.                | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target`                     |
+| `wa clean`                | Removes files emitted by prior WebAnvil builds.                       | No options                                                                                                                           |
+| `wa check`                | Checks formatting, linting, and types, stopping on the first failure. | `--fix`                                                                                                                              |
+| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.                    | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
+| `wa preview`              | Serves a Vite production build.                                       | `--out-dir`, `--host`, `--port`, `--open`                                                                                            |
+| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                        |
+| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                          | `--fix`                                                                                                                              |
+| `wa format [paths...]`    | Formats with Oxfmt.                                                   | `--check`                                                                                                                            |
+| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                   | No options                                                                                                                           |
 
 Run `wa <command> --help` for the complete reference for a command.

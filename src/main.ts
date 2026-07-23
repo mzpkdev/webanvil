@@ -5,6 +5,7 @@ import { readPackageJSON } from "pkg-types"
 
 import {
     buildCommand,
+    checkCommand,
     cleanCommand,
     devCommand,
     formatCommand,
@@ -21,6 +22,7 @@ export const main = async (...varargs: string[]): Promise<number> => {
     return execute(
         [
             buildCommand,
+            checkCommand,
             cleanCommand,
             devCommand,
             formatCommand,

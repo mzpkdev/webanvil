@@ -31,7 +31,7 @@ and workspace orchestration.
 | Build watch                         | Yes, full configured Node build | Yes                                  | No documented mode     | Yes, `pack --watch`               | Config reload and richer recovery diagnostics     |
 | Package hooks                       | No                              | No                                   | Yes                    | No                                | Build lifecycle extension points                  |
 | Test                                | Yes, Vitest                     | No                                   | No                     | Yes, `vp test`                    | None for the core case                            |
-| Lint, format, typecheck             | Yes, separately                 | No                                   | No                     | Yes, direct and `vp check`        | A native aggregate `wa check` command             |
+| Lint, format, typecheck             | Yes, direct and via `wa check`  | No                                   | No                     | Yes, direct and `vp check`        | None                                              |
 | Production preview                  | Yes, Vite                       | No                                   | No                     | Yes, `vp preview`                 | None for the core case                            |
 | Workspace task runner               | No                              | No                                   | No                     | Yes, cached `vp run`              | Dependency-aware workspace execution              |
 | Monorepo configuration              | No                              | No                                   | No                     | Yes, root config and overrides    | Workspace config inheritance                      |
@@ -50,6 +50,9 @@ and workspace orchestration.
 - `wa preview` serves web build output through Vite. `wa test` exposes Vitest
   one-shot, watch, V8 coverage, and UI modes; lint, format, and typecheck invoke
   Oxlint, Oxfmt, and `tsgo` directly.
+- `wa check` runs formatting, linting, and type checking sequentially and stops
+  at the first failure; `--fix` writes formatting changes and applies safe lint
+  fixes. Tests remain a separate `wa test` workflow.
 - Its config has one `build` block plus tool config passthrough. It has no
   package, preview, workspace, task, or project-generation block.
 
@@ -80,12 +83,7 @@ Keep Rolldown as the low-level build engine. WebAnvil can borrow obuild's
 library configuration shape without taking a runtime
 dependency on another CLI wrapper.
 
-### 2. `wa check`
-
-Add a fail-fast aggregate check command for format, lint, and type checking.
-It fits the existing CLI and requires little new configuration.
-
-### 3. Workspace execution
+### 2. Workspace execution
 
 Add workspace discovery, root configuration, dependency ordering, and cached
 tasks only after package builds are reliable. This is the Vite+ differentiator,

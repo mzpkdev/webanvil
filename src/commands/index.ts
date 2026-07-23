@@ -1,4 +1,5 @@
 export { build, default as buildCommand } from "./build"
+export { default as checkCommand, checkProject } from "./check"
 export { clean, default as cleanCommand } from "./clean"
 export { default as devCommand, dev } from "./dev"
 export { default as formatCommand, format } from "./format"
