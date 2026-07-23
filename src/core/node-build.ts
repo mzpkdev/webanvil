@@ -36,6 +36,7 @@ export type NodeBuildPlan = {
 type NodeBuildPreparation = { copies: CopyFile[]; retainedOutput: string[] }
 
 export type NodeWatchLifecycle = {
+    abort: () => void
     complete: () => Promise<string[]>
     plugin: RolldownPlugin
     start: () => Promise<void>
@@ -108,11 +109,20 @@ export const nodeWatchLifecycle = (plan: NodeBuildPlan): NodeWatchLifecycle => {
     let preparation: Promise<NodeBuildPreparation> | undefined
 
     return {
+        abort: () => {
+            // An earlier format may have called writeBundle before a later one
+            // fails. Never let those partial paths reach build-info or copies.
+            output = []
+            preparation = undefined
+        },
         plugin: {
             name: "webanvil-node-watch",
             buildStart: async function () {
                 if (preparation === undefined) throw new Error("Node watch build started without preparation")
                 const prepared = await preparation
+                // Rolldown reliably watches resolved files. Registering the
+                // static glob bases is best effort for additions; mappings are
+                // always re-expanded whenever any rebuild starts.
                 for (const path of [
                     ...staticCopyWatchPaths(plan.options.copy, plan.cwd),
                     ...prepared.copies.map(({ from }) => from)

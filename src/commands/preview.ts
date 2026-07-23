@@ -5,20 +5,9 @@ import { preview as vitePreview } from "vite"
 
 import { hasToolConfig } from "../config-files"
 import { loadConfig } from "../config"
+import { untilTerminated } from "../core/until-terminated"
 import { host, open, outDir, port } from "../options"
 import { logger } from "../tools"
-
-const untilTerminated = (): Promise<void> =>
-    new Promise((resolve) => {
-        const terminate = (): void => {
-            process.off("SIGINT", terminate)
-            process.off("SIGTERM", terminate)
-            resolve()
-        }
-
-        process.once("SIGINT", terminate)
-        process.once("SIGTERM", terminate)
-    })
 
 export const preview = async (
     outDir: string,

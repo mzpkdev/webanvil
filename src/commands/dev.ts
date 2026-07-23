@@ -6,21 +6,10 @@ import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
 import { withConfig } from "../config"
 import { createNodeBuildPlan, type NodeBuildOptions, nodeWatchLifecycle } from "../core/node-build"
+import { untilTerminated } from "../core/until-terminated"
 import { bundle, copy, declaration, formats, host, minify, mode, outDir, port, sourcemap, target } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
-
-const untilTerminated = (): Promise<void> =>
-    new Promise((resolve) => {
-        const terminate = (): void => {
-            process.off("SIGINT", terminate)
-            process.off("SIGTERM", terminate)
-            resolve()
-        }
-
-        process.once("SIGINT", terminate)
-        process.once("SIGTERM", terminate)
-    })
 
 export const dev = async (
     mode: "web" | "node",
@@ -99,6 +88,7 @@ dev.node = async (
 
         if (event.code === "ERROR") {
             failed = true
+            lifecycle.abort()
             await event.result.close()
             logger.error(event.error)
         }
