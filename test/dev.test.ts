@@ -35,13 +35,19 @@ const waitForFile = async (path: string): Promise<void> => {
 
 const waitFor = async (description: string, check: () => boolean | Promise<boolean>): Promise<void> => {
     const timeout = Date.now() + 10_000
+    let lastError: unknown
 
     while (Date.now() < timeout) {
-        if (await check()) return
+        try {
+            if (await check()) return
+        } catch (error) {
+            lastError = error
+        }
         await new Promise((resolve) => setTimeout(resolve, 50))
     }
 
-    throw new Error(`Timed out waiting for ${description}`)
+    const detail = lastError instanceof Error ? `: ${lastError.message}` : ""
+    throw new Error(`Timed out waiting for ${description}${detail}`)
 }
 
 const exists = (path: string): Promise<boolean> =>
