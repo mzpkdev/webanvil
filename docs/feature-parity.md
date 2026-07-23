@@ -20,19 +20,19 @@ and workspace orchestration.
 | Capability                          | WebAnvil                        | unbuild                              | obuild                 | Vite+                             | Gap for WebAnvil                                  |
 | ----------------------------------- | ------------------------------- | ------------------------------------ | ---------------------- | --------------------------------- | ------------------------------------------------- |
 | Web application build               | Yes, Vite                       | No                                   | No                     | Yes, `vp build`                   | None for the core case                            |
-| Web development server              | Yes, Vite                       | No                                   | No                     | Yes, `vp dev`                     | Preview command                                   |
+| Web development server              | Yes, Vite                       | No                                   | No                     | Yes, `vp dev`                     | None for the core case                            |
 | Node package build                  | Yes, explicit bundled entries   | Yes                                  | Yes                    | Yes, `vp pack`                    | Package validation and watch                      |
 | Type declarations                   | Partial, opt-in Rolldown output | Yes, package-aware modes             | Yes, `dts` options     | Yes, `pack.dts`                   | Package export-aware declaration layout           |
-| Multiple entries                    | No                              | Yes                                  | Yes                    | Yes                               | Entry arrays and output mapping                   |
-| Bundleless output                   | Yes, Node default               | Yes, `mkdist`                        | Yes, transform entries | Partial, via `pack` features      | File-to-file output and asset copying             |
+| Multiple entries                    | Yes, explicit mappings          | Yes                                  | Yes                    | Yes                               | Package entry inference                           |
+| Bundleless output                   | Yes, Node default + static copy | Yes, `mkdist`                        | Yes, transform entries | Partial, via `pack` features      | File transforms                                   |
 | Package entry inference             | No, explicit entries            | Yes, from `package.json`             | No                     | Config-driven                     | Infer and validate `exports`, `main`, and `types` |
 | Package build validation            | No                              | Missing and unused dependency checks | No                     | N/A                               | Detect invalid exports and dependency mistakes    |
 | Stub development build              | No                              | Yes                                  | Yes                    | No                                | Lower priority developer convenience              |
 | Build watch                         | Partial, Node rebuild only      | Yes                                  | No documented mode     | Yes, `pack --watch`               | Package watch with declaration output             |
 | Package hooks                       | No                              | No                                   | Yes                    | No                                | Build lifecycle extension points                  |
-| Test                                | Yes, Vitest                     | No                                   | No                     | Yes, `vp test`                    | Watch, coverage, and UI passthrough               |
+| Test                                | Yes, Vitest                     | No                                   | No                     | Yes, `vp test`                    | None for the core case                            |
 | Lint, format, typecheck             | Yes, separately                 | No                                   | No                     | Yes, direct and `vp check`        | A native aggregate `wa check` command             |
-| Production preview                  | No                              | No                                   | No                     | Yes, `vp preview`                 | `wa preview` using Vite                           |
+| Production preview                  | Yes, Vite                       | No                                   | No                     | Yes, `vp preview`                 | None for the core case                            |
 | Workspace task runner               | No                              | No                                   | No                     | Yes, cached `vp run`              | Dependency-aware workspace execution              |
 | Monorepo configuration              | No                              | No                                   | No                     | Yes, root config and overrides    | Workspace config inheritance                      |
 | Project scaffolding and migration   | No                              | No                                   | No                     | Yes, `vp create` and `vp migrate` | Templates first, migration later                  |
@@ -45,8 +45,9 @@ and workspace orchestration.
   experimental declaration plugin.
 - `wa dev` starts Vite for web projects and rebuilds a Node entry with Rolldown.
   It does not execute or restart the Node output.
-- `wa test`, `wa lint`, `wa format`, and `wa typecheck` invoke Vitest, Oxlint,
-  Oxfmt, and `tsgo` directly.
+- `wa preview` serves web build output through Vite. `wa test` exposes Vitest
+  one-shot, watch, V8 coverage, and UI modes; lint, format, and typecheck invoke
+  Oxlint, Oxfmt, and `tsgo` directly.
 - Its config has one `build` block plus tool config passthrough. It has no
   package, preview, workspace, task, or project-generation block.
 
@@ -77,11 +78,10 @@ Keep Rolldown as the low-level build engine. WebAnvil can borrow obuild's
 library configuration shape without taking a runtime
 dependency on another CLI wrapper.
 
-### 2. `wa check` and `wa preview`
+### 2. `wa check`
 
-Add a fail-fast aggregate check command for format, lint, and type checking,
-then expose Vite's production preview. Both fit the existing CLI and require
-little new configuration.
+Add a fail-fast aggregate check command for format, lint, and type checking.
+It fits the existing CLI and requires little new configuration.
 
 ### 3. Workspace execution
 

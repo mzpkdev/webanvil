@@ -39,8 +39,9 @@ WebAnvil puts the common jobs behind `wa`. It uses Vite for web projects, Rolldo
 ```sh
 wa dev        # develop a web app or watch a Node build
 wa build      # build the project
+wa preview    # serve the production web build
 wa clean      # remove tracked build output
-wa test       # run tests
+wa test       # run tests, watch them, collect coverage, or open the UI
 wa lint       # lint files
 wa format      # format files
 wa typecheck   # type-check the project
@@ -49,15 +50,15 @@ wa typecheck   # type-check the project
 What it includes
 ----------------
 
-| Project job                | WebAnvil command     | Tool              |
-| -------------------------- | -------------------- | ----------------- |
-| Web builds and development | `wa build`, `wa dev` | Vite              |
-| Node builds and watch mode | `wa build`, `wa dev` | Rolldown          |
-| Tracked output cleanup     | `wa clean`           | WebAnvil          |
-| Tests                      | `wa test`            | Vitest            |
-| Linting                    | `wa lint`            | Oxlint            |
-| Formatting                 | `wa format`          | Oxfmt             |
-| Type checking              | `wa typecheck`       | TypeScript Native |
+| Project job                | WebAnvil command                   | Tool              |
+| -------------------------- | ---------------------------------- | ----------------- |
+| Web builds and development | `wa build`, `wa dev`, `wa preview` | Vite              |
+| Node builds and watch mode | `wa build`, `wa dev`               | Rolldown          |
+| Tracked output cleanup     | `wa clean`                         | WebAnvil          |
+| Tests                      | `wa test`                          | Vitest            |
+| Linting                    | `wa lint`                          | Oxlint            |
+| Formatting                 | `wa format`                        | Oxfmt             |
+| Type checking              | `wa typecheck`                     | TypeScript Native |
 
 Getting started
 ---------------
@@ -104,7 +105,7 @@ npm run typecheck
 
 ### A web app
 
-Set the build mode to `"web"` and point it at an HTML entry point. `wa dev` starts Vite's development server, and `wa build` produces a production bundle.
+Set the build mode to `"web"` and point it at an HTML entry point. `wa dev` starts Vite's development server, `wa build` produces a production bundle, and `wa preview` serves that bundle locally.
 
 ```ts
 import { defineConfig } from "webanvil"
@@ -143,6 +144,7 @@ export default defineConfig({
         mode: "node",
         entry: "src/server.ts",
         outDir: "dist",
+        bundle: true,
         formats: ["esm", "cjs"],
         declaration: true,
         sourcemap: true
@@ -233,6 +235,21 @@ instead of overwriting in each case.
 Web builds keep Vite's `publicDir` behavior unchanged. Do not use `copy` for
 assets imported by application code; Vite continues to manage those assets.
 
+### Test modes
+
+`wa test` runs once by default. Use `--watch` to rerun affected tests after a
+change, `--coverage` to write V8 coverage reports, or `--ui` to start the
+Vitest UI:
+
+```sh
+wa test --watch
+wa test --coverage
+wa test --ui
+```
+
+These are run-specific modes; keep persistent Vitest configuration in
+`vitest.config.*`.
+
 ### Cleaning build output
 
 `wa build` records emitted and copied files in `.webanvil/buildinfo.json`. Run `wa clean` to remove only those files across every build target; source files and other untracked files stay in place. The command leaves `.webanvil/` behind with an empty output list.
@@ -272,7 +289,8 @@ Command reference
 | `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. | `--mode`, `--out-dir`, `--copy`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
 | `wa clean`                | Removes files emitted by prior WebAnvil builds.        | No options                                                                                           |
 | `wa dev [entry]`          | Starts a Vite server or a Node build watcher.          | `--mode`, `--out-dir`, `--host`, `--port`                                                            |
-| `wa test [filters...]`    | Runs Vitest once.                                      | `--environment`                                                                                      |
+| `wa preview`              | Serves a Vite production build.                        | `--out-dir`, `--host`, `--port`                                                                      |
+| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI. | `--environment`, `--watch`, `--coverage`, `--ui`                                                     |
 | `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.           | `--fix`                                                                                              |
 | `wa format [paths...]`    | Formats with Oxfmt.                                    | `--check`                                                                                            |
 | `wa typecheck [paths...]` | Type-checks with TypeScript Native.                    | No options                                                                                           |

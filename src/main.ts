@@ -9,6 +9,7 @@ import {
     devCommand,
     formatCommand,
     lintCommand,
+    previewCommand,
     testCommand,
     typecheckCommand
 } from "./commands/index"
@@ -18,7 +19,16 @@ export const main = async (...varargs: string[]): Promise<number> => {
     const packageJson = await readPackageJSON(fileURLToPath(new URL("..", import.meta.url)))
 
     return execute(
-        [buildCommand, cleanCommand, devCommand, formatCommand, lintCommand, testCommand, typecheckCommand],
+        [
+            buildCommand,
+            cleanCommand,
+            devCommand,
+            formatCommand,
+            lintCommand,
+            previewCommand,
+            testCommand,
+            typecheckCommand
+        ],
         {
             argv: varargs,
             metadata: {

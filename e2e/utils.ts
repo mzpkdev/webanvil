@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process"
 import { access, rm } from "node:fs/promises"
+import { createServer } from "node:net"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -24,9 +25,23 @@ type DevServer = {
 
 export const project = (name: string): string => join(root, "examples", name)
 
-const startWebAnvil = (example: string, ...args: string[]): DevServer => {
+export const availablePort = async (): Promise<number> =>
+    new Promise((resolve, reject) => {
+        const server = createServer()
+        server.once("error", reject)
+        server.listen(0, "127.0.0.1", () => {
+            const address = server.address()
+            if (address === null || typeof address === "string") {
+                server.close(() => reject(new Error("Could not reserve a local port")))
+                return
+            }
+            server.close((error) => (error === undefined ? resolve(address.port) : reject(error)))
+        })
+    })
+
+const startWebAnvil = (example: string, command: string, ...args: string[]): DevServer => {
     let output = ""
-    const child = spawn(join(example, "node_modules", ".bin", wa), ["dev", ...args], {
+    const child = spawn(join(example, "node_modules", ".bin", wa), [command, ...args], {
         cwd: example,
         stdio: ["ignore", "pipe", "pipe"]
     })
@@ -72,11 +87,14 @@ webanvil.build = async (cwd: string, outDir = "dist", ...args: string[]): Promis
     return output
 }
 webanvil.clean = (cwd: string) => webanvil(cwd, "clean")
-webanvil.dev = startWebAnvil
 webanvil.format = (cwd: string) => webanvil(cwd, "format", "--check")
 webanvil.lint = (cwd: string) => webanvil(cwd, "lint")
-webanvil.test = (cwd: string) => webanvil(cwd, "test")
+webanvil.test = (cwd: string, ...args: string[]) => webanvil(cwd, "test", ...args)
+webanvil.testUi = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "test", "--ui", ...args)
+webanvil.testWatch = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "test", "--watch", ...args)
 webanvil.typecheck = (cwd: string) => webanvil(cwd, "typecheck")
+webanvil.preview = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "preview", ...args)
+webanvil.dev = (cwd: string, ...args: string[]) => startWebAnvil(cwd, "dev", ...args)
 
 const pause = async (milliseconds: number): Promise<void> => {
     await new Promise<void>((resolve) => setTimeout(resolve, milliseconds))

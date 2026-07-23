@@ -29,7 +29,10 @@ build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web app or Node mod
 clean                                                remove files emitted by prior WebAnvil builds
 dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>]
                                                      start a Vite server or Rolldown watcher
-test [filters...] [--environment <environment>]       run Vitest
+preview [--out-dir <dir>] [--host <host>] [--port <port>]
+                                                     serve a Vite production build
+test [filters...] [--environment <environment>] [--watch] [--coverage] [--ui]
+                                                     run Vitest once, in watch mode, with coverage, or UI
 lint [paths...] [--fix]                                lint with Oxlint
 format [paths...] [--check]                            format with Oxfmt
 typecheck [paths...]                                   type check a project or explicit files with TypeScript Native Preview
@@ -94,6 +97,8 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 - Static copy mappings use project-relative `{ from, to }` pairs, where `from` is a file path or glob and `to` is an output directory. Preserve paths beneath the glob's static base, reject destinations that resolve to a generated, duplicate, or untracked output file, and record copied files for `wa clean`.
 - `wa build` records emitted and statically copied paths in `.webanvil/buildinfo.json`; `wa clean` removes only those paths and leaves the state file with an empty output list.
 - A configured build entry is the default; an explicit positional entry overrides it.
+- `wa preview` serves the resolved web build output through Vite. `--host`, `--port`, and `--out-dir` are run-specific CLI overrides.
+- `wa test` runs once by default; `--watch`, `--coverage`, and `--ui` are CLI-only Vitest modes. Keep persistent advanced testing configuration in `vitest.config.*`.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
 
 ## Test conventions
@@ -115,7 +120,7 @@ Future config resolution will merge project config, workspace config, and built-
 
 ## Test configuration
 
-`wa test` passes `test.environment` and `test.include` to Vitest. Its positional filters and `--environment` option mirror Vitest; the CLI environment overrides config. Use `vitest.config.*` only for advanced Vitest configuration that WebAnvil does not expose.
+`wa test` passes `test.environment` and `test.include` to Vitest. Its positional filters and `--environment` option mirror Vitest; the CLI environment overrides config. `--watch`, `--coverage`, and `--ui` expose run-specific Vitest modes. Use `vitest.config.*` for persistent advanced Vitest configuration.
 
 ## Project structure
 

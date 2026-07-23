@@ -6,6 +6,7 @@
         "build": "wa build",
         "clean": "wa clean",
         "dev": "wa dev",
+        "preview": "wa preview",
         "format": "wa format",
         "format:check": "wa format --check",
         "lint": "wa lint",
