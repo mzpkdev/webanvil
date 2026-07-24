@@ -24,7 +24,7 @@ import {
 
 export type NodeBuildOptions = Pick<
     BuildConfig,
-    "bundle" | "copy" | "declaration" | "entries" | "formats" | "minify" | "sourcemap" | "target"
+    "bundle" | "copy" | "declaration" | "entries" | "formats" | "minify" | "platform" | "sourcemap" | "target"
 >
 
 export type NodeBuildPlan = {
@@ -52,6 +52,9 @@ export const createNodeBuildPlan = async (
     const cwd = process.cwd()
     const packageOptions = await resolvePackageOutputOptions(options, cwd)
     const resolvedOptions = { ...options, ...packageOptions }
+    if (resolvedOptions.entries !== undefined && resolvedOptions.bundle !== true) {
+        throw new Error("Node build entries require bundle: true")
+    }
     const target = resolve(cwd, outDir)
     const applicationRoot = sourceRoot(entry, cwd)
     const declarationRoot = resolve(target, relative(cwd, applicationRoot))
@@ -64,6 +67,7 @@ export const createNodeBuildPlan = async (
               formats: resolvedOptions.formats,
               minify: resolvedOptions.minify,
               outDir: target,
+              platform: resolvedOptions.platform,
               plugins,
               sourcemap: resolvedOptions.sourcemap,
               target: resolvedOptions.target
@@ -75,6 +79,7 @@ export const createNodeBuildPlan = async (
               inputs: await applicationInputs(applicationRoot),
               minify: resolvedOptions.minify,
               outDir: target,
+              platform: resolvedOptions.platform,
               plugins,
               sourcemap: resolvedOptions.sourcemap,
               target: resolvedOptions.target

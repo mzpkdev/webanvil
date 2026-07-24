@@ -28,6 +28,10 @@ describe("npm-lib", () => {
             await expect(access(join(output, "index.js"))).resolves.toBeUndefined()
             await expect(access(join(output, "index.cjs"))).resolves.toBeUndefined()
             await expect(access(join(output, "index.d.ts"))).resolves.toBeUndefined()
+            await expect(access(join(output, "feature.js"))).resolves.toBeUndefined()
+            await expect(access(join(output, "feature.cjs"))).resolves.toBeUndefined()
+            await expect(access(join(output, "feature.d.ts"))).resolves.toBeUndefined()
+            await expect(access(join(output, "internal", "implementation.d.ts"))).rejects.toThrow()
 
             const esm = await readFile(join(output, "index.js"), "utf8")
             const cjs = await readFile(join(output, "index.cjs"), "utf8")
@@ -78,12 +82,13 @@ describe("npm-lib", () => {
 
             await expect(access(join(output, "index.js"))).rejects.toThrow()
             await expect(access(join(output, "feature.js"))).rejects.toThrow()
+            await expect(access(join(output, "feature.d.ts"))).rejects.toThrow()
             await expect(access(join(override, "index.js"))).rejects.toThrow()
             await expect(readFile(join(example, ".webanvil", "buildinfo.json"), "utf8")).resolves.toBe(
                 '{\n  "output": []\n}\n'
             )
             await expect(access(join(example, "index.ts"))).resolves.toBeUndefined()
-            await expect(access(join(example, "feature.ts"))).resolves.toBeUndefined()
+            await expect(access(join(example, "src", "internal", "implementation.ts"))).resolves.toBeUndefined()
             await expect(access(join(example, "package.json"))).resolves.toBeUndefined()
         }, 60_000)
     })

@@ -12,9 +12,11 @@ export default {
     build: {
         bundle: true,
         entry: "index.ts",
-        entries: { ".": "index.ts", "./feature": "feature.ts" },
+        entries: { ".": "index.ts", "./feature": "src/internal/implementation.ts" },
         outDir: ".",
-        sourcemap: true
+        sourcemap: true,
+        platform: "node",
+        target: "es2022"
     },
     plugins: [definePlugin(replace, { from: "Hello", to: "Hello from a plugin" })],
     test: { environment: "node", include: ["test/**/*.test.ts"] }

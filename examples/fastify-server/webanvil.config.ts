@@ -20,6 +20,7 @@ export default {
         copy: [{ from: "src/templates/**", to: "templates" }],
         sourcemap: true,
         minify: true,
+        platform: "node",
         target: "node20"
     }
 }

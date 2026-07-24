@@ -1,4 +1,4 @@
-import { rename, rmdir } from "node:fs/promises"
+import { mkdir, mkdtemp, rename, rm, rmdir } from "node:fs/promises"
 import { dirname, relative, resolve } from "pathe"
 
 import {
@@ -11,6 +11,10 @@ import {
 import { isolatedDeclarationPlugin } from "rolldown/experimental"
 import { glob } from "tinyglobby"
 
+import { assertSyntaxTarget, type SyntaxTarget } from "../config"
+
+type NodePlatform = "node" | "browser" | "neutral"
+
 type NodeOutputOptions = {
     declaration?: boolean
     declarationSourceDir?: string
@@ -18,9 +22,10 @@ type NodeOutputOptions = {
     inputs: Record<string, string>
     minify?: boolean
     outDir: string
+    platform?: NodePlatform
     plugins?: RolldownPlugin[]
     sourcemap?: boolean
-    target?: "node20" | "browser" | "neutral"
+    target?: SyntaxTarget
 }
 
 type BundleOutputOptions = Omit<NodeOutputOptions, "inputs" | "plugins"> & {
@@ -33,11 +38,17 @@ type BundleOutputOptions = Omit<NodeOutputOptions, "inputs" | "plugins"> & {
 }
 
 export type NodeOutputPlan = {
+    declarationAliases?: DeclarationAlias[]
     declarationSourceDir?: string
     input: InputOptions
     outDir: string
     output: OutputOptions[]
     predictedOutput: string[]
+}
+
+type DeclarationAlias = {
+    destination: string
+    source: string
 }
 
 type WritableBundle = Pick<RolldownBuild, "write">
@@ -63,13 +74,17 @@ export const sourceRoot = (entry: string, cwd = process.cwd()): string => dirnam
 
 const commonInput = (
     plugins: RolldownPlugin[],
-    target: "node20" | "browser" | "neutral"
-): Pick<InputOptions, "external" | "platform" | "plugins" | "transform"> => ({
-    plugins,
-    platform: target === "node20" ? "node" : target,
-    ...(target === "node20" ? { transform: { target } } : {}),
-    external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/"))
-})
+    platform: NodePlatform = "node",
+    target: SyntaxTarget = "node20"
+): Pick<InputOptions, "external" | "platform" | "plugins" | "transform"> => {
+    assertSyntaxTarget(target)
+    return {
+        plugins,
+        platform,
+        transform: { target },
+        external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/"))
+    }
+}
 
 export const applicationOutputPlan = ({
     declaration,
@@ -78,9 +93,10 @@ export const applicationOutputPlan = ({
     inputs,
     minify,
     outDir,
+    platform,
     plugins = [],
     sourcemap,
-    target = "node20"
+    target
 }: NodeOutputOptions): NodeOutputPlan => {
     if (Object.keys(inputs).length === 0) throw new Error("No application source files found")
 
@@ -89,7 +105,7 @@ export const applicationOutputPlan = ({
         ...(emitDeclarations && declarationSourceDir ? { declarationSourceDir } : {}),
         input: {
             input: inputs,
-            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], target)
+            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], platform, target)
         },
         outDir,
         output: formats.map((format) => ({
@@ -126,14 +142,29 @@ const defaultEntryName = (entry: string, cwd: string): string =>
     withoutExtension(relative(cwd, resolve(cwd, entry))).replace(/^src\//, "")
 
 export const bundledInputs = (cwd: string, entry: string, entries?: Record<string, string>): Record<string, string> => {
-    if (entries !== undefined) {
-        return Object.fromEntries(
-            Object.entries(entries).map(([subpath, source]) => [entryName(subpath), resolve(cwd, source)])
-        )
+    if (entries === undefined) {
+        return { [defaultEntryName(entry, cwd)]: resolve(cwd, entry) }
     }
 
-    return { [defaultEntryName(entry, cwd)]: resolve(cwd, entry) }
+    const inputs: Record<string, string> = {}
+    const sources = new Map<string, string>()
+    for (const [subpath, source] of Object.entries(entries)) {
+        const resolved = resolve(cwd, source)
+        const existing = sources.get(resolved)
+        if (existing !== undefined) {
+            throw new Error(`Bundled entries ${existing} and ${subpath} resolve to the same source file`)
+        }
+        sources.set(resolved, subpath)
+        inputs[entryName(subpath)] = resolved
+    }
+    return inputs
 }
+
+const bundledDeclarationAliases = (inputs: Record<string, string>, cwd: string, outDir: string): DeclarationAlias[] =>
+    Object.entries(inputs).map(([name, source]) => ({
+        destination: resolve(outDir, `${name}.d.ts`),
+        source: resolve(outDir, `${defaultEntryName(source, cwd)}.d.ts`)
+    }))
 
 const moveDeclarations = async (
     sourceDeclarations: string,
@@ -142,6 +173,7 @@ const moveDeclarations = async (
     const files = await glob("**/*.d.{ts,mts,cts}", { absolute: true, cwd: sourceDeclarations })
 
     const destination = files.map((file) => resolve(outDir, relative(sourceDeclarations, file)))
+    await Promise.all(destination.map((file) => mkdir(dirname(file), { recursive: true })))
     await Promise.all(files.map((file) => rename(file, resolve(outDir, relative(sourceDeclarations, file)))))
     const directories = new Set<string>()
     for (const file of files) {
@@ -170,16 +202,23 @@ export const bundledOutputPlan = ({
     formats = ["esm"],
     minify,
     outDir,
+    platform,
     plugins = [],
     sourcemap,
-    target = "node20"
+    target
 }: BundleOutputOptions): NodeOutputPlan => {
     const emitDeclarations = declaration === true
+    const inputs = bundledInputs(cwd, entry, entries)
     return {
-        ...(emitDeclarations ? { declarationSourceDir: resolve(outDir, "src") } : {}),
+        ...(emitDeclarations
+            ? {
+                  declarationAliases: bundledDeclarationAliases(inputs, cwd, outDir),
+                  declarationSourceDir: resolve(outDir, "src")
+              }
+            : {}),
         input: {
-            input: bundledInputs(cwd, entry, entries),
-            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], target)
+            input: inputs,
+            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], platform, target)
         },
         outDir,
         output: formats.map((format) => ({
@@ -194,11 +233,65 @@ export const bundledOutputPlan = ({
     }
 }
 
+const applyDeclarationAliases = async (
+    aliases: DeclarationAlias[],
+    files: string[],
+    outDir: string
+): Promise<{ source: string[]; destination: string[] }> => {
+    const available = new Set(files)
+    const applicable = aliases.filter(({ source, destination }) => source !== destination && available.has(source))
+    await Promise.all(applicable.map(({ destination }) => mkdir(dirname(destination), { recursive: true })))
+    if (applicable.length > 0) {
+        const stagingDirectory = await mkdtemp(resolve(outDir, ".webanvil-declaration-aliases-"))
+        const staged = applicable.map((alias, index) => ({
+            ...alias,
+            staged: resolve(stagingDirectory, `${index}.d.ts`)
+        }))
+        try {
+            await Promise.all(staged.map(({ source, staged }) => rename(source, staged)))
+            await Promise.all(staged.map(({ destination, staged }) => rename(staged, destination)))
+        } catch (error) {
+            await rm(stagingDirectory, { force: true, recursive: true })
+            throw error
+        }
+        await rmdir(stagingDirectory)
+    }
+    const directories = new Set<string>()
+    for (const { source } of applicable) {
+        let directory = dirname(source)
+        while (directory !== outDir) {
+            directories.add(directory)
+            directory = dirname(directory)
+        }
+    }
+    for (const directory of [...directories].sort((left, right) => right.length - left.length)) {
+        try {
+            await rmdir(directory)
+        } catch (error) {
+            if (!["ENOENT", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error
+        }
+    }
+    return {
+        destination: applicable.map(({ destination }) => destination),
+        source: applicable.map(({ source }) => source)
+    }
+}
+
 export const normalizeNodeOutput = async (plan: NodeOutputPlan, output: string[]): Promise<string[]> => {
-    const declarations = plan.declarationSourceDir
+    const moved = plan.declarationSourceDir
         ? await moveDeclarations(plan.declarationSourceDir, plan.outDir)
         : { source: [], destination: [] }
-    return [...output.filter((file) => !declarations.source.includes(file)), ...declarations.destination]
+    const aliased = await applyDeclarationAliases(
+        plan.declarationAliases ?? [],
+        [...output, ...moved.destination],
+        plan.outDir
+    )
+    const replaced = new Set([...moved.source, ...aliased.source])
+    return [
+        ...output.filter((file) => !replaced.has(file)),
+        ...moved.destination.filter((file) => !replaced.has(file)),
+        ...aliased.destination
+    ]
 }
 
 export const writeNodeOutput = async (plan: NodeOutputPlan, bundle: WritableBundle): Promise<string[]> => {

@@ -21,10 +21,11 @@ and workspace orchestration.
 | ----------------------------------- | ------------------------------- | ------------------------------------ | ---------------------- | --------------------------------- | ------------------------------------------------- |
 | Web application build               | Yes, Vite                       | No                                   | No                     | Yes, `vp build`                   | None for the core case                            |
 | Web development server              | Yes, Vite                       | No                                   | No                     | Yes, `vp dev`                     | None for the core case                            |
-| Node package build                  | Yes, explicit bundled entries   | Yes                                  | Yes                    | Yes, `vp pack`                    | Package validation                                |
+| Node package build                  | Yes, mirrored or bundled output | Yes                                  | Yes                    | Yes, `vp pack`                    | Package validation                                |
 | Type declarations                   | Partial, opt-in Rolldown output | Yes, package-aware modes             | Yes, `dts` options     | Yes, `pack.dts`                   | Package export-aware declaration layout           |
 | Multiple entries                    | Yes, explicit mappings          | Yes                                  | Yes                    | Yes                               | Package entry inference                           |
-| Bundleless output                   | Yes, Node default + static copy | Yes, `mkdist`                        | Yes, transform entries | Partial, via `pack` features      | File transforms                                   |
+| Bundleless output                   | Yes, mirrors dirname(entry)     | Yes, `mkdist`                        | Yes, transform entries | Partial, via `pack` features      | File transforms                                   |
+| Platform and syntax targets         | Yes, independently routed       | Yes                                  | Yes                    | Yes                               | None                                              |
 | Package entry inference             | No, explicit entries            | Yes, from `package.json`             | No                     | Config-driven                     | Infer and validate `exports`, `main`, and `types` |
 | Package build validation            | No                              | Missing and unused dependency checks | No                     | N/A                               | Detect invalid exports and dependency mistakes    |
 | Stub development build              | No                              | Yes                                  | Yes                    | No                                | Lower priority developer convenience              |
@@ -41,8 +42,8 @@ and workspace orchestration.
 ## Current WebAnvil evidence
 
 - `wa build` delegates web builds to Vite and Node builds to Rolldown.
-- Node builds accept ESM/CJS formats, sourcemaps, minification, target, and an
-  experimental declaration plugin.
+- Node builds accept ESM/CJS formats, sourcemaps, minification, an independent
+  platform and syntax target, and an experimental declaration plugin.
 - `wa dev` starts Vite for web projects. Node watch mode shares the one-shot
   build plan, including entries, formats, declarations, static copies,
   stale-output cleanup, and build-info. It does not execute or restart the Node

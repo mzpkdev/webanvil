@@ -25,12 +25,14 @@ A unified CLI for every JS/TS project type — frontend apps, libraries, Node.js
 ```
 build [entry] [--mode <web|node>] [--out-dir <dir>]  build a web app or Node module tree
               [--copy <source=destination...>] [--bundle] [--declaration <true|false>] [--formats <esm,cjs>]
-              [--sourcemap <true|false>] [--minify <true|false>] [--target <node20|browser|neutral>]
+              [--sourcemap <true|false>] [--minify <true|false>] [--platform <node|browser|neutral>]
+              [--target <target[,target...]>]
 check [--fix]                                        check formatting, linting, and types; optionally fix files
 clean                                                remove files emitted by prior WebAnvil builds
 dev [entry] [--mode <web|node>] [--out-dir <dir>] [--host <host>] [--port <port>]
             [--copy <source=destination...>] [--bundle] [--declaration <true|false>] [--formats <esm,cjs>]
-            [--sourcemap <true|false>] [--minify <true|false>] [--target <node20|browser|neutral>]
+            [--sourcemap <true|false>] [--minify <true|false>] [--platform <node|browser|neutral>]
+            [--target <target[,target...]>]
                                                      start a Vite server or Rolldown watcher
 preview [--out-dir <dir>] [--host <host>] [--port <port>] [--open]
                                                      serve a Vite production build
@@ -53,6 +55,8 @@ export default defineConfig({
         bundle: true,
         entries: { ".": "src/index.ts" },
         outDir: "dist",
+        platform: "node",
+        target: "es2022",
         copy: [{ from: "assets/**", to: "assets" }]
     },
     test: {
@@ -95,12 +99,15 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 ## CLI and config policy
 
-- Persistent behavior options, such as `mode`, `outDir`, static `copy` mappings, test environment, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options. Test includes remain config-only, matching Vitest.
-- `wa build` is the one build command. Web mode uses Vite; Node mode emits a source tree rooted beside its entry in the selected ESM/CJS formats, with optional declarations. `--bundle` switches Node output to explicit `build.entries` mappings.
+- Persistent behavior options, such as `mode`, `outDir`, static `copy` mappings, test environment, platform, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options. Test includes remain config-only, matching Vitest.
+- `wa build` is the one build command. Web mode uses Vite; unbundled Node mode mirrors the source tree beneath `dirname(entry)` in the selected ESM/CJS formats, with optional declarations. `--bundle` switches Node output to one explicit `entry` or public `build.entries` mappings.
+- Validate mode-specific fields and plugins after explicit CLI overrides.
+- An explicit positional entry overrides configured `entry` and `entries`.
+- Node `platform` defaults to `node`; Node syntax `target` defaults to `node20`.
+  Web rejects platform, has no WebAnvil target default, and web dev ignores it.
 - Node builds fill omitted `formats` and `declaration` settings from the nearest `package.json`. `import`, `require`, and `types` export conditions map to ESM, CommonJS, and declarations; a top-level `types` field also enables declarations. Precedence is CLI, WebAnvil config, package metadata, then built-in defaults. Package metadata does not affect web builds.
 - Static copy mappings use project-relative `{ from, to }` pairs, where `from` is a file path or glob and `to` is an output directory. Preserve paths beneath the glob's static base, reject destinations that resolve to a generated, duplicate, or untracked output file, and record copied files for `wa clean`. Node watch mode re-expands mappings on every rebuild, watches currently matched files, and picks up newly matching files on the next rebuild.
 - `wa build` records emitted and statically copied paths in `.webanvil/buildinfo.json`; `wa clean` removes only those paths and leaves the state file with an empty output list.
-- A configured build entry is the default; an explicit positional entry overrides it.
 - `wa preview` serves the resolved web build output through Vite. `--host`, `--port`, `--out-dir`, and `--open` are run-specific CLI overrides.
 - `wa check` runs formatting, linting, and type checking sequentially and stops on the first failure. It is read-only by default; `--fix` writes formatting changes and applies safe lint fixes. It never runs tests.
 - `wa test` runs once by default; `--watch`, `--coverage`, and `--ui` are CLI-only Vitest modes. `--ui-port` selects a strict loopback port and requires `--ui`. Keep persistent advanced testing configuration in `vitest.config.*`.
@@ -115,11 +122,11 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 ## Build modes
 
-`web` mode runs Vite and uses an HTML entry. `node` mode runs Rolldown and emits each JavaScript or TypeScript source module under the entry directory in the selected ESM/CJS formats, with optional declarations. `--bundle` switches Node mode to explicit library entries. Framework detection and the unplugin API belong to later phases.
+`web` mode runs Vite and uses an HTML entry. Unbundled `node` mode runs Rolldown and emits each JavaScript or TypeScript source module beneath `dirname(entry)` in the selected ESM/CJS formats, with optional mirrored declarations. `--bundle` switches Node mode to one explicit entry or public entry mappings, and declarations follow those public names.
 
 ## Development modes
 
-`wa dev` starts Vite's development server in web mode. `--host` and `--port` configure that server. In node mode, it uses the same build plan as `wa build`: entries, formats, declarations, source maps, minification, target, plugins, static copies, stale-output cleanup, and build-info are applied on every successful rebuild. It does not execute or restart the output. Build plugins pass through to Vite or Rolldown in their matching mode. Process supervision, signals, stdio, and port ownership belong to the application runtime. Watch build errors are reported and leave the watcher running.
+`wa dev` starts Vite's development server in web mode. `--host` and `--port` configure that server. In node mode, it uses the same build plan as `wa build`: entries, formats, declarations, source maps, minification, platform, target, plugins, static copies, stale-output cleanup, and build-info are applied on every successful rebuild. It does not execute or restart the output. Build plugins pass through to Vite or Rolldown in their matching mode. Process supervision, signals, stdio, and port ownership belong to the application runtime. Watch build errors are reported and leave the watcher running.
 
 Future config resolution will merge project config, workspace config, and built-ins through defu, then validate with Zod.
 

@@ -6,11 +6,11 @@ import { glob } from "tinyglobby"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
-import { withConfig } from "../config"
+import { assertSyntaxTarget, resolveEffectiveBuildConfig, withConfig } from "../config"
 import { removeOutputsIn, writeBuildInfo } from "../core/build-info"
 import { createNodeBuildPlan, type NodeBuildOptions, runNodeBuild } from "../core/node-build"
 import { assertStaticCopyDestinationsAvailable, copyStaticFiles, planStaticCopies } from "../core/static-copy"
-import { bundle, copy, declaration, formats, minify, mode, outDir, sourcemap, target } from "../options"
+import { bundle, copy, declaration, formats, minify, mode, outDir, platform, sourcemap, target } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
@@ -32,6 +32,11 @@ export const build = async (
     options: BuildOptions = {},
     plugins: WebAnvilPlugin[] = []
 ): Promise<void> => {
+    assertSyntaxTarget(options.target)
+    if (mode === "web" && options.platform !== undefined) {
+        throw new Error("Web builds do not accept platform; platform applies only to Node builds")
+    }
+
     logger.start(`Building ${entry}`)
 
     if (mode === "node") {
@@ -65,11 +70,12 @@ build.webConfig = async (
     options: BuildOptions,
     plugins: WebAnvilPlugin[]
 ): Promise<WebBuild> => {
+    assertSyntaxTarget(options.target)
+    if (options.platform !== undefined) {
+        throw new Error("Web builds do not accept platform; platform applies only to Node builds")
+    }
     if (options.formats?.some((format) => format !== "esm")) {
         throw new Error("Web builds only support the esm format")
-    }
-    if (options.target != null && options.target !== "browser") {
-        throw new Error("Web builds only support the browser target")
     }
 
     const preserveOutput = options.copy != null && options.copy.length > 0
@@ -84,6 +90,7 @@ build.webConfig = async (
                   outDir: resolve(process.cwd(), outDir),
                   minify: options.minify,
                   sourcemap: options.sourcemap,
+                  ...(options.target === undefined ? {} : { target: options.target }),
                   rolldownOptions: { input: resolve(process.cwd(), entry) }
               }
           }
@@ -109,29 +116,35 @@ build.web = async (web: WebBuild): Promise<string[]> => [
 export default defineCommand({
     name: "build",
     arguments: [entry],
-    options: [mode, outDir, bundle, copy, declaration, sourcemap, minify, formats, target],
+    options: [mode, outDir, bundle, copy, declaration, sourcemap, minify, formats, platform, target],
     run: withConfig(
         (config) => config.build,
         (
-            { bundle, copy, declaration, formats, minify, mode, entry, "out-dir": outDir, sourcemap, target },
-            _buildConfig,
-            resolvedConfig
-        ) =>
-            build(
-                mode,
-                entry,
-                outDir,
+            { bundle, copy, declaration, formats, minify, mode, entry, "out-dir": outDir, platform, sourcemap, target },
+            buildConfig,
+            resolvedConfig,
+            explicit
+        ) => {
+            const effective = resolveEffectiveBuildConfig(
+                resolvedConfig,
                 {
-                    bundle: bundle || _buildConfig.bundle,
+                    bundle: bundle || buildConfig.bundle,
                     copy,
                     declaration,
-                    entries: _buildConfig.entries,
+                    entries: buildConfig.entries,
+                    entry,
                     formats,
                     minify,
+                    mode,
+                    outDir,
+                    platform,
                     sourcemap,
                     target
                 },
-                resolvedConfig.plugins ?? []
+                explicit.entry !== undefined
             )
+
+            return build(effective.mode!, effective.entry!, effective.outDir!, effective, resolvedConfig.plugins ?? [])
+        }
     )
 })

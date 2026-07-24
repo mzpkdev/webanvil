@@ -68,6 +68,58 @@ describe("dev", () => {
             )
         })
 
+        it("rejects a raw Vite plugin passed directly to Node watch", async () => {
+            await expect(dev.node("src/index.ts", "dist", [{ name: "vite-only" }])).rejects.toThrow(
+                "Node builds require plugins created with definePlugin()"
+            )
+        })
+
+        it("reports legacy targets through the direct Node watch API", async () => {
+            await expect(dev.node("src/index.ts", "dist", [], undefined, { target: "browser" })).rejects.toThrow(
+                'build.target no longer selects a platform; use build.platform: "browser" instead'
+            )
+        })
+
+        it("routes platform and target independently to Node watch", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.ts"), "export const value = true\n")
+            process.chdir(directory)
+
+            let observedPlatform: unknown
+            let observedTarget: unknown
+            let stop = (): void => {}
+            const terminated = new Promise<void>((resolve) => {
+                stop = resolve
+            })
+            const watching = dev.node(
+                "index.ts",
+                "dist",
+                [
+                    {
+                        vite: () => ({ name: "vite-observer" }),
+                        rolldown: () => ({
+                            name: "rolldown-observer",
+                            options: (options) => {
+                                observedPlatform = options.platform
+                                observedTarget = options.transform?.target
+                            }
+                        })
+                    }
+                ],
+                () => terminated,
+                { platform: "neutral", target: ["es2022", "chrome100"] }
+            )
+
+            try {
+                await waitForFile(join(directory, "dist", "index.js"))
+            } finally {
+                stop()
+                await watching
+            }
+            expect(observedPlatform).toBe("neutral")
+            expect(observedTarget).toEqual(["es2022", "chrome100"])
+        })
+
         it("starts and stops a watcher", async () => {
             const directory = await createDirectory()
             await writeFile(join(directory, "index.ts"), 'export const greeting = "hello"\n')
@@ -120,11 +172,11 @@ describe("dev", () => {
 
         it("keeps bundled library output in parity with one-shot builds", { timeout: 20_000 }, async () => {
             const directory = await createDirectory()
-            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "src", "internal"), { recursive: true })
             await mkdir(join(directory, "assets"), { recursive: true })
             await mkdir(join(directory, "dist"), { recursive: true })
             await writeFile(join(directory, "src", "index.ts"), 'export const greeting: string = "hello"\n')
-            await writeFile(join(directory, "src", "feature.ts"), "export const feature = true\n")
+            await writeFile(join(directory, "src", "internal", "implementation.ts"), "export const feature = true\n")
             await writeFile(join(directory, "assets", "message.txt"), "first\n")
             await writeFile(join(directory, "dist", "stale.js"), "stale\n")
             await writeBuildInfo(["dist/stale.js"], directory)
@@ -138,7 +190,7 @@ describe("dev", () => {
                 bundle: true,
                 copy: [{ from: "assets/**", to: "assets" }],
                 declaration: true,
-                entries: { ".": "src/index.ts", "./feature": "src/feature.ts" },
+                entries: { ".": "src/index.ts", "./feature": "src/internal/implementation.ts" },
                 formats: ["esm", "cjs"],
                 sourcemap: true
             })
@@ -167,6 +219,7 @@ describe("dev", () => {
                     )
                 })
                 await expect(access(join(directory, "dist", "stale.js"))).rejects.toThrow()
+                await expect(access(join(directory, "dist", "internal", "implementation.d.ts"))).rejects.toThrow()
                 expect((await readBuildInfo(directory)).output).toEqual(expected)
 
                 await writeFile(join(directory, "src", "index.ts"), "export const greeting: number = 42\n")
@@ -181,15 +234,17 @@ describe("dev", () => {
 
                 await writeFile(join(directory, "assets", "added.txt"), "added\n")
                 await writeFile(
-                    join(directory, "src", "feature.ts"),
+                    join(directory, "src", "internal", "implementation.ts"),
                     "export const feature = true\nexport const added = true\n"
                 )
                 await waitFor(
-                    "the newly matched copied output",
+                    "the newly matched copy and renamed declaration",
                     async () =>
                         (await exists(join(directory, "dist", "assets", "added.txt"))) &&
+                        (await readFile(join(directory, "dist", "feature.d.ts"), "utf8")).includes("added") &&
                         (await readBuildInfo(directory)).output.includes("dist/assets/added.txt")
                 )
+                await expect(access(join(directory, "dist", "internal", "implementation.d.ts"))).rejects.toThrow()
 
                 await rm(join(directory, "assets", "message.txt"))
                 await waitFor(
@@ -206,6 +261,46 @@ describe("dev", () => {
     })
 
     context("with a web build", () => {
+        it("rejects platform and legacy targets through the direct API", async () => {
+            await expect(
+                dev("web", "index.html", "dist", undefined, undefined, [], { platform: "browser" })
+            ).rejects.toThrow("Web development does not accept platform")
+            await expect(
+                dev("web", "index.html", "dist", undefined, undefined, [], { target: "neutral" })
+            ).rejects.toThrow('build.target no longer selects a platform; use build.platform: "neutral" instead')
+        })
+
+        it("does not apply the production target to web development", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), 'document.body.textContent = "webanvil"\n')
+            process.chdir(directory)
+
+            let stop = (): void => {}
+            const terminated = new Promise<void>((resolve) => {
+                stop = resolve
+            })
+            let resolvedTarget: unknown
+            await dev.web(
+                "127.0.0.1",
+                0,
+                [
+                    {
+                        name: "observe-target",
+                        configResolved: (config) => {
+                            resolvedTarget = config.build.target
+                        },
+                        configureServer: (server) => {
+                            server.httpServer?.once("listening", () => stop())
+                        }
+                    }
+                ],
+                () => terminated
+            )
+
+            expect(resolvedTarget).not.toBe("es2015")
+        })
+
         it("starts and stops a Vite server", async () => {
             const directory = await createDirectory()
             await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')

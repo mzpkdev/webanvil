@@ -2,6 +2,6 @@ import { defineOption } from "cmdore"
 
 export const bundle = defineOption({
     name: "bundle",
-    description: "Bundle a Node entry instead of preserving its source module tree.",
+    description: "Bundle one or more explicit Node entries; without it, preserve the source module tree.",
     arity: 0
 })

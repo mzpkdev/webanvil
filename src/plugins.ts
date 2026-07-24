@@ -2,7 +2,7 @@ import type { Plugin as RolldownPlugin } from "rolldown"
 import type { UnpluginInstance } from "unplugin"
 import type { PluginOption } from "vite"
 
-type UnpluginAdapter = {
+export type UnpluginAdapter = {
     rolldown: () => RolldownPlugin | RolldownPlugin[]
     vite: () => PluginOption
 }
@@ -14,7 +14,7 @@ export const definePlugin = <Options>(plugin: UnpluginInstance<Options>, options
     vite: () => plugin.vite(options)
 })
 
-const isUnpluginAdapter = (plugin: WebAnvilPlugin): plugin is UnpluginAdapter =>
+export const isUnpluginAdapter = (plugin: unknown): plugin is UnpluginAdapter =>
     typeof plugin === "object" &&
     plugin !== null &&
     "rolldown" in plugin &&
@@ -26,12 +26,7 @@ export const isWebAnvilPlugin = (plugin: unknown): plugin is WebAnvilPlugin =>
     Array.isArray(plugin) ||
     typeof plugin === "function" ||
     (typeof plugin === "object" && plugin !== null && "name" in plugin) ||
-    (typeof plugin === "object" &&
-        plugin !== null &&
-        "rolldown" in plugin &&
-        typeof plugin.rolldown === "function" &&
-        "vite" in plugin &&
-        typeof plugin.vite === "function")
+    isUnpluginAdapter(plugin)
 
 export const resolveRolldownPlugins = (plugins: WebAnvilPlugin[]): RolldownPlugin[] =>
     plugins.flatMap((plugin) => {

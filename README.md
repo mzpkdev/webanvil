@@ -144,7 +144,7 @@ export default defineConfig({
 
 ### A Node project
 
-Node mode is the default. Choose an entry file and add only the output options you need:
+Node mode is the default. Choose a source-tree anchor, or enable bundling for explicit public entries:
 
 ```ts
 import { defineConfig } from "webanvil"
@@ -152,28 +152,41 @@ import { defineConfig } from "webanvil"
 export default defineConfig({
     build: {
         mode: "node",
-        entry: "src/server.ts",
+        entries: {
+            ".": "src/index.ts",
+            "./feature": "src/internal/implementation.ts"
+        },
         outDir: "dist",
         bundle: true,
         formats: ["esm", "cjs"],
         declaration: true,
-        sourcemap: true
+        sourcemap: true,
+        platform: "node",
+        target: "es2022"
     }
 })
 ```
+
+Without `bundle`, Node builds mirror every source module beneath
+`dirname(entry)`. With `bundle`, use one `entry` or public `entries`; an
+explicit positional entry overrides configured entries. Bare imports remain
+external in both. Declarations follow the selected output names.
+`platform` (`node`, `browser`, or `neutral`) is Node-only. `target` is one
+syntax target or an array; CLI lists are comma-separated. Node defaults are
+`platform: "node"` and `target: "node20"`. Web production forwards only an
+explicit target; Vite config wins, and web dev does not apply it.
 
 For Node builds, WebAnvil fills omitted output settings from the nearest
 `package.json`: `import` and `require` export conditions enable ESM and CommonJS
 respectively, while a top-level `types` field or `types` export condition enables
 declarations. Explicit CLI options override `webanvil.config.*`, which overrides
-package metadata, which overrides built-in defaults. Without `bundle`, every
-source module under the entry directory is emitted in each selected format and
-declarations mirror that file tree. Package metadata does not affect web builds.
+package metadata, which overrides built-in defaults. Package metadata does not
+affect web builds.
 
 `wa dev` watches and rebuilds Node output with the same `build` configuration as
 `wa build`: bundle mode, entries, formats, declarations, source maps,
-minification, target, plugins, static copies, stale-output cleanup, and build
-metadata all stay in sync. It does not run or restart the server process.
+minification, platform, target, plugins, static copies, stale-output cleanup, and
+build metadata all stay in sync. It does not run or restart the server process.
 
 ### Node build plugins
 
@@ -194,8 +207,9 @@ export default defineConfig({
 })
 ```
 
-Plain Vite plugins work in web mode. Node builds require plugins created with
-`definePlugin()`; raw Rolldown plugins are rejected.
+Plain Vite plugins work in effective web mode. Effective Node builds require
+plugins created with `definePlugin()`; raw Vite and Rolldown plugins are rejected
+during config validation after explicit CLI overrides are applied.
 
 Configuration
 -------------
@@ -312,16 +326,16 @@ That lets a project standardize on `wa` now and move settings into `webanvil.con
 Command reference
 -----------------
 
-| Command                   | Description                                                           | Options                                                                                                                              |
-| ------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode.                | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target`                     |
-| `wa clean`                | Removes files emitted by prior WebAnvil builds.                       | No options                                                                                                                           |
-| `wa check`                | Checks formatting, linting, and types, stopping on the first failure. | `--fix`                                                                                                                              |
-| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.                    | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--target` |
-| `wa preview`              | Serves a Vite production build.                                       | `--out-dir`, `--host`, `--port`, `--open`                                                                                            |
-| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                        |
-| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                          | `--fix`                                                                                                                              |
-| `wa format [paths...]`    | Formats with Oxfmt.                                                   | `--check`                                                                                                                            |
-| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                   | No options                                                                                                                           |
+| Command                   | Description                                                           | Options                                                                                                                                            |
+| ------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode.                | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`                     |
+| `wa clean`                | Removes files emitted by prior WebAnvil builds.                       | No options                                                                                                                                         |
+| `wa check`                | Checks formatting, linting, and types, stopping on the first failure. | `--fix`                                                                                                                                            |
+| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.                    | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target` |
+| `wa preview`              | Serves a Vite production build.                                       | `--out-dir`, `--host`, `--port`, `--open`                                                                                                          |
+| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                                      |
+| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                          | `--fix`                                                                                                                                            |
+| `wa format [paths...]`    | Formats with Oxfmt.                                                   | `--check`                                                                                                                                          |
+| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                   | No options                                                                                                                                         |
 
 Run `wa <command> --help` for the complete reference for a command.

@@ -4,12 +4,40 @@ import type { OxfmtConfig } from "oxfmt"
 import type { OxlintConfig } from "oxlint"
 import { z } from "zod"
 
-import { isWebAnvilPlugin, type WebAnvilPlugin } from "./plugins"
+import { isUnpluginAdapter, isWebAnvilPlugin, type WebAnvilPlugin } from "./plugins"
 
 export const copyMappingSchema = z.strictObject({
     from: z.string().min(1),
     to: z.string().min(1)
 })
+
+export type SyntaxTarget = string | string[]
+
+const legacyPlatformTarget = (target: SyntaxTarget): "browser" | "neutral" | undefined =>
+    (typeof target === "string" ? [target] : target).find(
+        (value): value is "browser" | "neutral" => value === "browser" || value === "neutral"
+    )
+
+export const assertSyntaxTarget = (target: SyntaxTarget | undefined): void => {
+    if (target === undefined) return
+
+    const legacy = legacyPlatformTarget(target)
+    if (legacy !== undefined) {
+        throw new Error(`build.target no longer selects a platform; use build.platform: "${legacy}" instead`)
+    }
+}
+
+export const syntaxTargetSchema = z
+    .union([z.string().min(1), z.array(z.string().min(1)).min(1)])
+    .superRefine((target, context) => {
+        const legacy = legacyPlatformTarget(target)
+        if (legacy !== undefined) {
+            context.addIssue({
+                code: "custom",
+                message: `build.target no longer selects a platform; use build.platform: "${legacy}" instead`
+            })
+        }
+    })
 
 export const buildConfigSchema = z.strictObject({
     bundle: z.boolean().optional(),
@@ -25,7 +53,8 @@ export const buildConfigSchema = z.strictObject({
         .array(z.enum(["esm", "cjs"]))
         .min(1)
         .optional(),
-    target: z.enum(["node20", "browser", "neutral"]).optional()
+    platform: z.enum(["node", "browser", "neutral"]).optional(),
+    target: syntaxTargetSchema.optional()
 })
 
 export const testConfigSchema = z.strictObject({
@@ -41,19 +70,49 @@ const toolConfigSchema = z.custom<Record<string, unknown>>(
 export const formatConfigSchema = toolConfigSchema
 export const lintConfigSchema = toolConfigSchema
 
+const pluginSchema = z.custom<WebAnvilPlugin>(
+    isWebAnvilPlugin,
+    "Expected a Vite plugin or a WebAnvil plugin created with definePlugin()"
+)
+
 export const userConfigSchema = z.strictObject({
     build: buildConfigSchema.optional(),
     format: formatConfigSchema.optional(),
     lint: lintConfigSchema.optional(),
     test: testConfigSchema.optional(),
-    plugins: z
-        .array(
-            z.custom<WebAnvilPlugin>(
-                isWebAnvilPlugin,
-                "Expected a Vite plugin or a WebAnvil plugin created with definePlugin()"
-            )
-        )
-        .optional()
+    plugins: z.array(pluginSchema).optional()
+})
+
+export const effectiveUserConfigSchema = userConfigSchema.superRefine((config, context) => {
+    const build = config.build ?? {}
+
+    if (build.entries !== undefined && (build.mode !== "node" || build.bundle !== true)) {
+        context.addIssue({
+            code: "custom",
+            path: ["build", "entries"],
+            message: "build.entries requires bundled Node mode"
+        })
+    }
+
+    if (build.mode === "web" && build.platform !== undefined) {
+        context.addIssue({
+            code: "custom",
+            path: ["build", "platform"],
+            message: "Web builds do not accept build.platform"
+        })
+    }
+
+    if (build.mode === "node") {
+        for (const [index, plugin] of (config.plugins ?? []).entries()) {
+            if (!isUnpluginAdapter(plugin)) {
+                context.addIssue({
+                    code: "custom",
+                    path: ["plugins", index],
+                    message: "Node builds require plugins created with definePlugin()"
+                })
+            }
+        }
+    }
 })
 
 export type BuildConfig = z.infer<typeof buildConfigSchema>
@@ -111,13 +170,25 @@ export const loadConfig = async (cwd = process.cwd()): Promise<ResolvedConfig> =
     return { config: userConfigSchema.parse(defu(config, defaultConfig)), configFile }
 }
 
+export const resolveEffectiveBuildConfig = (
+    config: UserConfig,
+    overrides: BuildConfig,
+    explicitEntry: boolean
+): BuildConfig => {
+    const build = { ...config.build, ...defined(overrides) } as BuildConfig
+    if (explicitEntry) delete build.entries
+
+    return effectiveUserConfigSchema.parse({ ...config, build }).build ?? {}
+}
+
 export const withConfig =
     <TConfig extends ConfigSection, TArguments extends CommandArguments, TResult>(
         select: (config: UserConfig) => TConfig | undefined,
         run: (
             arguments_: ResolvedArguments<TArguments>,
             config: TConfig,
-            resolvedConfig: UserConfig
+            resolvedConfig: UserConfig,
+            explicitArguments: TArguments
         ) => TResult | Promise<TResult>
     ) =>
     async (arguments_: TArguments): Promise<TResult> => {
@@ -130,6 +201,7 @@ export const withConfig =
                 ...defined(arguments_)
             } as ResolvedArguments<TArguments>,
             selectedConfig,
-            config
+            config,
+            arguments_
         )
     }

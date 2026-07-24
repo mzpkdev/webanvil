@@ -4,10 +4,23 @@ import { createServer } from "vite"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
-import { withConfig } from "../config"
+import { assertSyntaxTarget, resolveEffectiveBuildConfig, withConfig } from "../config"
 import { createNodeBuildPlan, type NodeBuildOptions, nodeWatchLifecycle } from "../core/node-build"
 import { untilTerminated } from "../core/until-terminated"
-import { bundle, copy, declaration, formats, host, minify, mode, outDir, port, sourcemap, target } from "../options"
+import {
+    bundle,
+    copy,
+    declaration,
+    formats,
+    host,
+    minify,
+    mode,
+    outDir,
+    platform,
+    port,
+    sourcemap,
+    target
+} from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
@@ -20,6 +33,11 @@ export const dev = async (
     plugins: WebAnvilPlugin[] = [],
     options: NodeBuildOptions = {}
 ): Promise<void> => {
+    assertSyntaxTarget(options.target)
+    if (mode === "web" && options.platform !== undefined) {
+        throw new Error("Web development does not accept platform; platform applies only to Node builds")
+    }
+
     logger.start(`Starting ${mode} development mode`)
 
     if (mode === "node" && (host !== undefined || port !== undefined)) {
@@ -58,6 +76,7 @@ dev.node = async (
     waitForTermination: () => Promise<void> = untilTerminated,
     options: NodeBuildOptions = {}
 ): Promise<void> => {
+    assertSyntaxTarget(options.target)
     const plan = await createNodeBuildPlan(entry, outDir, options, resolveRolldownPlugins(plugins))
     const lifecycle = nodeWatchLifecycle(plan)
     plan.output.input.plugins = [...((plan.output.input.plugins ?? []) as RolldownPlugin[]), lifecycle.plugin]
@@ -104,7 +123,7 @@ dev.node = async (
 export default defineCommand({
     name: "dev",
     arguments: [entry],
-    options: [mode, outDir, host, port, bundle, copy, declaration, sourcemap, minify, formats, target],
+    options: [mode, outDir, host, port, bundle, copy, declaration, sourcemap, minify, formats, platform, target],
     run: withConfig(
         (config) => config.build,
         (
@@ -118,22 +137,43 @@ export default defineCommand({
                 entry,
                 "out-dir": outDir,
                 host,
+                platform,
                 port,
                 sourcemap,
                 target
             },
             buildConfig,
-            resolvedConfig
-        ) =>
-            dev(mode, entry, outDir, host, port, resolvedConfig.plugins ?? [], {
-                bundle: bundle || buildConfig.bundle,
-                copy,
-                declaration,
-                entries: buildConfig.entries,
-                formats,
-                minify,
-                sourcemap,
-                target
-            })
+            resolvedConfig,
+            explicit
+        ) => {
+            const effective = resolveEffectiveBuildConfig(
+                resolvedConfig,
+                {
+                    bundle: bundle || buildConfig.bundle,
+                    copy,
+                    declaration,
+                    entries: buildConfig.entries,
+                    entry,
+                    formats,
+                    minify,
+                    mode,
+                    outDir,
+                    platform,
+                    sourcemap,
+                    target
+                },
+                explicit.entry !== undefined
+            )
+
+            return dev(
+                effective.mode!,
+                effective.entry!,
+                effective.outDir!,
+                host,
+                port,
+                resolvedConfig.plugins ?? [],
+                effective
+            )
+        }
     )
 })
