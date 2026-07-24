@@ -2,6 +2,8 @@ import type { Plugin as RolldownPlugin } from "rolldown"
 import type { UnpluginInstance } from "unplugin"
 import type { PluginOption } from "vite"
 
+import { NODE_PLUGIN_ERROR } from "./plugin-validation"
+
 export type UnpluginAdapter = {
     rolldown: () => RolldownPlugin | RolldownPlugin[]
     vite: () => PluginOption
@@ -31,7 +33,7 @@ export const isWebAnvilPlugin = (plugin: unknown): plugin is WebAnvilPlugin =>
 export const resolveRolldownPlugins = (plugins: WebAnvilPlugin[]): RolldownPlugin[] =>
     plugins.flatMap((plugin) => {
         if (!isUnpluginAdapter(plugin)) {
-            throw new Error("Node builds require plugins created with definePlugin()")
+            throw new Error(NODE_PLUGIN_ERROR)
         }
 
         return plugin.rolldown()

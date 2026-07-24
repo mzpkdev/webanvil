@@ -4,6 +4,7 @@ import type { OxfmtConfig } from "oxfmt"
 import type { OxlintConfig } from "oxlint"
 import { z } from "zod"
 
+import { NODE_PLUGIN_ERROR } from "./plugin-validation"
 import { isUnpluginAdapter, isWebAnvilPlugin, type WebAnvilPlugin } from "./plugins"
 
 export const copyMappingSchema = z.strictObject({
@@ -108,7 +109,7 @@ export const effectiveUserConfigSchema = userConfigSchema.superRefine((config, c
                 context.addIssue({
                     code: "custom",
                     path: ["plugins", index],
-                    message: "Node builds require plugins created with definePlugin()"
+                    message: NODE_PLUGIN_ERROR
                 })
             }
         }
