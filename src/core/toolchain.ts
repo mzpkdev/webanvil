@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { resolvePath as resolveModulePath } from "mlly"
 import { glob } from "tinyglobby"
+import { parse } from "yaml"
 
 const { satisfies } = createRequire(import.meta.url)("semver") as {
     satisfies(version: string, range: string): boolean
@@ -126,30 +127,33 @@ const manifestWorkspacePatterns = (manifest: PackageManifest): string[] => {
 }
 
 const pnpmWorkspacePatterns = async (directory: string): Promise<string[]> => {
+    const path = join(directory, "pnpm-workspace.yaml")
+    let contents: string
     try {
-        const contents = await readFile(join(directory, "pnpm-workspace.yaml"), "utf8")
-        const patterns: string[] = []
-        let packagesIndent: number | undefined
-
-        for (const line of contents.split(/\r?\n/)) {
-            const packageHeader = /^(\s*)packages\s*:\s*(?:#.*)?$/.exec(line)
-            if (packageHeader !== null) {
-                packagesIndent = packageHeader[1]!.length
-                continue
-            }
-            if (packagesIndent === undefined || line.trim() === "" || line.trimStart().startsWith("#")) continue
-
-            const indentation = line.length - line.trimStart().length
-            if (indentation <= packagesIndent) break
-            const item = /^\s*-\s*(?:"([^"]+)"|'([^']+)'|([^#\s][^#]*?))\s*(?:#.*)?$/.exec(line)
-            const pattern = item?.[1] ?? item?.[2] ?? item?.[3]?.trim()
-            if (pattern !== undefined) patterns.push(pattern)
-        }
-
-        return patterns
-    } catch {
-        return []
+        contents = await readFile(path, "utf8")
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
+        throw error
     }
+
+    let manifest: unknown
+    try {
+        manifest = parse(contents)
+    } catch (error) {
+        throw new Error(`Invalid pnpm workspace manifest at ${path}`, { cause: error })
+    }
+
+    if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest)) {
+        throw new Error(`Invalid pnpm workspace manifest at ${path}: expected a mapping`)
+    }
+
+    const packages = (manifest as { packages?: unknown }).packages
+    if (packages === undefined) return []
+    if (!Array.isArray(packages) || packages.some((pattern) => typeof pattern !== "string")) {
+        throw new Error(`Invalid pnpm workspace manifest at ${path}: packages must be an array of strings`)
+    }
+
+    return packages
 }
 
 const isWorkspaceMember = async (

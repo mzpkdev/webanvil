@@ -1,5 +1,5 @@
 import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
-import { createRequire } from "node:module"
+import { createRequire, SourceMap } from "node:module"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -373,6 +373,81 @@ describe("build", () => {
                 "dist/lib/greeting.js",
                 "dist/lib/greeting.js.map"
             ])
+        })
+
+        it("keeps minified source maps aligned after removing the unused Rolldown runtime", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                'import { dependency } from "./dependency"\nexport const localValue = dependency() + 1\n'
+            )
+            await writeFile(join(directory, "src", "dependency.ts"), "export const dependency = () => Date.now()\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { minify: true, sourcemap: true })
+
+            const generated = await readFile(join(directory, "dist", "index.js"), "utf8")
+            const generatedColumn = generated.indexOf("const")
+            const map = new SourceMap(JSON.parse(await readFile(join(directory, "dist", "index.js.map"), "utf8")))
+            const original = map.findEntry(0, generatedColumn)
+
+            expect(generatedColumn).toBeGreaterThan(0)
+            expect(generated).not.toContain("_rolldown/runtime")
+            expect("originalSource" in original).toBe(true)
+            if (!("originalSource" in original)) throw new Error("Expected a mapped generated position")
+            expect(original.originalSource).toMatch(/src\/index\.ts$/)
+            expect(original.originalLine).toBe(1)
+        })
+
+        it("preserves native per-format minification and source maps when WebAnvil leaves them undefined", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                'export const descriptiveValue = () => "native settings"\n'
+            )
+            process.chdir(directory)
+
+            await build(
+                "node",
+                "src/index.ts",
+                "dist",
+                {},
+                [],
+                {},
+                { output: { esm: { minify: true, sourcemap: true } } }
+            )
+
+            await expect(access(join(directory, "dist", "index.js.map"))).resolves.toBeUndefined()
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.not.toContain(
+                "const descriptiveValue"
+            )
+        })
+
+        it("lets explicit WebAnvil false values override native per-format minification and source maps", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                'export const descriptiveValue = () => "webanvil settings"\n'
+            )
+            process.chdir(directory)
+
+            await build(
+                "node",
+                "src/index.ts",
+                "dist",
+                { minify: false, sourcemap: false },
+                [],
+                {},
+                { output: { esm: { minify: true, sourcemap: true } } }
+            )
+
+            await expect(access(join(directory, "dist", "index.js.map"))).rejects.toThrow()
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain(
+                "const descriptiveValue"
+            )
         })
 
         it("keeps runtime bare imports external in source-tree output", async () => {

@@ -194,6 +194,53 @@ describe("Toolchain", () => {
             })
         })
 
+        it.each(['packages: ["packages/*"]\n', 'packages: [\n  "packages/*",\n]\n'])(
+            "recognizes a pnpm workspace manifest with a flow sequence",
+            async (contents) => {
+                const workspace = await createDirectory()
+                const project = join(workspace, "packages", "app")
+                await mkdir(project, { recursive: true })
+                await declareTool(workspace, "vite")
+                await writeFile(join(workspace, "pnpm-workspace.yaml"), contents)
+                await writeJson(join(project, "package.json"), { name: "app" })
+                const packageRoot = await installFakePackage(workspace, "vite", { version: "8.2.0" })
+
+                await expect(resolveTool("vite", project)).resolves.toMatchObject({
+                    version: "8.2.0",
+                    source: "project",
+                    packageRoot
+                })
+            }
+        )
+
+        it("rejects a pnpm workspace manifest whose packages field is not a string array", async () => {
+            const workspace = await createDirectory()
+            const project = join(workspace, "packages", "app")
+            await mkdir(project, { recursive: true })
+            await declareTool(workspace, "vite")
+            await writeFile(join(workspace, "pnpm-workspace.yaml"), "packages: packages/*\n")
+            await writeJson(join(project, "package.json"), { name: "app" })
+            await installFakePackage(workspace, "vite", { version: "8.2.0" })
+
+            await expect(resolveTool("vite", project)).rejects.toThrow(
+                /Invalid pnpm workspace manifest at .*pnpm-workspace\.yaml: packages must be an array of strings/
+            )
+        })
+
+        it("rejects syntactically invalid pnpm workspace YAML", async () => {
+            const workspace = await createDirectory()
+            const project = join(workspace, "packages", "app")
+            await mkdir(project, { recursive: true })
+            await declareTool(workspace, "vite")
+            await writeFile(join(workspace, "pnpm-workspace.yaml"), 'packages: ["packages/*"\n')
+            await writeJson(join(project, "package.json"), { name: "app" })
+            await installFakePackage(workspace, "vite", { version: "8.2.0" })
+
+            await expect(resolveTool("vite", project)).rejects.toThrow(
+                /Invalid pnpm workspace manifest at .*pnpm-workspace\.yaml/
+            )
+        })
+
         it("ignores an ancestor workspace declaration for a non-member project", async () => {
             const workspace = await createDirectory()
             const project = join(workspace, "examples", "standalone")

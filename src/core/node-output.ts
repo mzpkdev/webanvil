@@ -44,6 +44,17 @@ type NodeOutputOptions = {
 
 const sourceExtensions = [".cts", ".mts", ".tsx", ".jsx", ".ts", ".js"]
 
+const rolldownRuntimePlugin = (): RolldownPlugin => ({
+    name: "webanvil-rolldown-runtime",
+    resolveId: {
+        order: "pre",
+        handler(source, importer) {
+            if (source !== "node:module" || importer !== "\0rolldown/runtime.js") return null
+            return { id: source, external: true, moduleSideEffects: false }
+        }
+    }
+})
+
 const withoutExtension = (path: string): string => {
     const extension = sourceExtensions.find((candidate) => path.endsWith(candidate))
     return extension === undefined ? path : path.slice(0, -extension.length)
@@ -100,7 +111,8 @@ const commonSourceRoot = (inputs: Record<string, string>): string => {
 const outputForFormat = (
     format: NodeFormat,
     native: OutputOptions | undefined,
-    owned: Pick<OutputOptions, "dir" | "minify" | "preserveModules" | "preserveModulesRoot" | "sourcemap">
+    owned: Pick<OutputOptions, "dir" | "preserveModules" | "preserveModulesRoot"> &
+        Partial<Pick<OutputOptions, "minify" | "sourcemap">>
 ): OutputOptions => ({
     entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
     chunkFileNames: format === "esm" ? "[name]-[hash].js" : "[name]-[hash].cjs",
@@ -140,7 +152,13 @@ export const nodeOutputPlan = ({
             ...(typeof nativeInput.transform === "object" ? nativeInput.transform : {}),
             target
         },
-        plugins: [projectExternalPlugin(cwd), ...nativePlugins, ...plugins, ...declarationPlugins]
+        plugins: [
+            rolldownRuntimePlugin(),
+            projectExternalPlugin(cwd),
+            ...nativePlugins,
+            ...plugins,
+            ...declarationPlugins
+        ]
     }
 
     return {
@@ -150,10 +168,10 @@ export const nodeOutputPlan = ({
         output: formats.map((format) =>
             outputForFormat(format, native?.output?.[format], {
                 dir: outDir,
-                minify,
+                ...(minify === undefined ? {} : { minify }),
                 preserveModules: !bundle,
                 ...(!bundle ? { preserveModulesRoot } : {}),
-                sourcemap
+                ...(sourcemap === undefined ? {} : { sourcemap })
             })
         )
     }
@@ -178,30 +196,6 @@ export const authoredNodeSources = (plan: NodeOutputPlan, outputs: RolldownOutpu
 const sourceBytes = (file: OutputAsset | OutputChunk): string | Uint8Array =>
     file.type === "chunk" ? file.code : file.source
 
-const removeEmptyRolldownRuntime = (files: GeneratedNodeFile[]): GeneratedNodeFile[] => {
-    const emptyRuntime = files.filter(
-        ({ fileName, source }) =>
-            typeof source === "string" &&
-            /(?:^|\/)(?:_rolldown\/runtime|rolldown-runtime-[^/]+)\.js$/.test(fileName) &&
-            source.replaceAll(/\s/g, "") === 'import"node:module";export{};'
-    )
-    if (emptyRuntime.length === 0) return files
-
-    const removed = new Set(emptyRuntime.map(({ fileName }) => fileName))
-    return files
-        .filter(({ fileName }) => !removed.has(fileName))
-        .map((file) => {
-            if (typeof file.source !== "string") return file
-            let source = file.source
-            for (const runtime of removed) {
-                const path = relative(dirname(file.fileName), runtime)
-                const specifier = path.startsWith(".") ? path : `./${path}`
-                source = source.replace(`import "${specifier}";`, "").replace(`import"${specifier}";`, "")
-            }
-            return { ...file, source }
-        })
-}
-
 export const generatedNodeFiles = (outputs: RolldownOutput[]): GeneratedNodeFile[] => {
     const generated = new Map<string, GeneratedNodeFile>()
     for (const output of outputs) {
@@ -215,5 +209,5 @@ export const generatedNodeFiles = (outputs: RolldownOutput[]): GeneratedNodeFile
             generated.set(fileName, { fileName, source })
         }
     }
-    return removeEmptyRolldownRuntime([...generated.values()])
+    return [...generated.values()]
 }
