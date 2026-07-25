@@ -143,11 +143,16 @@ export const nodeOutputPlan = ({
     const preserveModulesRoot = commonSourceRoot(inputs)
     const nativeInput = native?.input ?? {}
     const nativePlugins = (nativeInput.plugins ?? []) as RolldownPlugin[]
+    const resolveOptions =
+        platform === "neutral" && nativeInput.resolve?.mainFields === undefined
+            ? { ...nativeInput.resolve, mainFields: ["module", "main"] }
+            : nativeInput.resolve
     const input: InputOptions = {
         tsconfig: true,
         ...nativeInput,
         input: inputs,
         platform,
+        ...(resolveOptions === undefined ? {} : { resolve: resolveOptions }),
         transform: {
             ...(typeof nativeInput.transform === "object" ? nativeInput.transform : {}),
             target

@@ -473,6 +473,71 @@ describe("build", () => {
             await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("pathe")
         })
 
+        it("resolves main-field packages before externalizing neutral output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "node_modules", "main-field-package"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "main-field-package"\n')
+            await writeFile(
+                join(directory, "node_modules", "main-field-package", "package.json"),
+                JSON.stringify({
+                    name: "main-field-package",
+                    main: "./index.cjs",
+                    module: "./index.js",
+                    type: "module"
+                })
+            )
+            await writeFile(
+                join(directory, "node_modules", "main-field-package", "index.js"),
+                'export const value = "do not bundle"\n'
+            )
+            await writeFile(
+                join(directory, "node_modules", "main-field-package", "index.cjs"),
+                'exports.value = "do not bundle"\n'
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { platform: "neutral" })
+
+            const output = await readFile(join(directory, "dist", "index.js"), "utf8")
+            expect(output).toContain('"main-field-package"')
+            expect(output).not.toContain("do not bundle")
+        })
+
+        it("preserves explicit main fields for neutral output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "node_modules", "custom-field-package"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "custom-field-package"\n')
+            await writeFile(
+                join(directory, "node_modules", "custom-field-package", "package.json"),
+                JSON.stringify({
+                    name: "custom-field-package",
+                    custom: "./custom.js",
+                    type: "module"
+                })
+            )
+            await writeFile(
+                join(directory, "node_modules", "custom-field-package", "custom.js"),
+                'export const value = "do not bundle"\n'
+            )
+            process.chdir(directory)
+
+            await build(
+                "node",
+                "src/index.ts",
+                "dist",
+                { platform: "neutral" },
+                [],
+                {},
+                { input: { resolve: { mainFields: ["custom"] } } }
+            )
+
+            const output = await readFile(join(directory, "dist", "index.js"), "utf8")
+            expect(output).toContain('"custom-field-package"')
+            expect(output).not.toContain("do not bundle")
+        })
+
         it("infers dual-format source trees and declarations from package metadata", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src", "lib"), { recursive: true })
