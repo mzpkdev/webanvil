@@ -15,4 +15,31 @@ jobs:
                   node-version: 22
                   cache: npm
             - run: npm ci
-            - run: npm test
+            - run: npm test -- --exclude e2e/toolchain-resolution.e2e.ts
+
+    toolchain:
+        name: Toolchain (${{ matrix.package-manager }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                package-manager: [npm, pnpm, bun]
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: 22
+                  cache: npm
+            - uses: pnpm/action-setup@v4
+              if: matrix.package-manager == 'pnpm'
+              with:
+                  version: 10
+            - uses: oven-sh/setup-bun@v2
+              if: matrix.package-manager == 'bun'
+              with:
+                  bun-version: 1.3.11
+            - run: npm ci
+            - run: npm run build
+            - run: npm exec -- vitest run e2e/toolchain-resolution.e2e.ts
+              env:
+                  WEBANVIL_E2E_PACKAGE_MANAGER: ${{ matrix.package-manager }}

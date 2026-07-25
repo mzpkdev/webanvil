@@ -15,5 +15,14 @@ jobs:
                   node-version: 22
                   cache: npm
             - run: npm ci
-            - run: npm run check
+            - run: npm run typecheck
+            - run: npm run lint
+            - run: npm run format:check
+            - run: npm test -- --exclude test/package-consumer.test.ts
             - run: npm run build
+            - run: test -f dist/index.d.mts
+            - run: npm pack --dry-run --json
+              env:
+                  npm_config_cache: /tmp/webanvil-npm-cache
+            - run: test -f test/package-consumer.test.ts
+            - run: npm test -- test/package-consumer.test.ts

@@ -42,4 +42,54 @@ describe("clean", () => {
             '{\n  "output": []\n}\n'
         )
     })
+
+    it("removes actual customized Node filenames and source maps", async () => {
+        const directory = await createDirectory()
+        await mkdir(join(directory, "src"), { recursive: true })
+        await writeFile(join(directory, "src", "index.ts"), "export const value = true\n")
+        await writeFile(
+            join(directory, "webanvil.config.ts"),
+            `export default {
+                build: { bundle: true, formats: ["esm", "cjs"], sourcemap: true },
+                rolldown: {
+                    output: {
+                        esm: { entryFileNames: "[name].mjs" },
+                        cjs: { entryFileNames: "[name].js" }
+                    }
+                }
+            }`
+        )
+
+        await execFileAsync(binary, ["build"], { cwd: directory })
+        await expect(access(join(directory, "dist", "index.mjs"))).resolves.toBeUndefined()
+        await expect(access(join(directory, "dist", "index.js.map"))).resolves.toBeUndefined()
+
+        await execFileAsync(binary, ["clean"], { cwd: directory })
+
+        await expect(access(join(directory, "dist", "index.mjs"))).rejects.toThrow()
+        await expect(access(join(directory, "dist", "index.mjs.map"))).rejects.toThrow()
+        await expect(access(join(directory, "dist", "index.js"))).rejects.toThrow()
+        await expect(access(join(directory, "dist", "index.js.map"))).rejects.toThrow()
+    })
+
+    it("keeps authored sources after a rejected source-output alias", async () => {
+        const directory = await createDirectory()
+        await mkdir(join(directory, "src"), { recursive: true })
+        await writeFile(join(directory, "src", "index.js"), "export const authored = true\n")
+
+        await expect(
+            execFileAsync(binary, ["build", "src/index.js", "--mode", "node", "--out-dir", "src"], {
+                cwd: directory
+            })
+        ).rejects.toThrow("aliases authored source")
+
+        await execFileAsync(binary, ["clean"], { cwd: directory })
+
+        await expect(readFile(join(directory, "src", "index.js"), "utf8")).resolves.toBe(
+            "export const authored = true\n"
+        )
+        await expect(readFile(join(directory, ".webanvil", "buildinfo.json"), "utf8")).resolves.toBe(
+            '{\n  "output": []\n}\n'
+        )
+    })
 })

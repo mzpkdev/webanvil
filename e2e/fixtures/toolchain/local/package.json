@@ -1,0 +1,18 @@
+{
+    "name": "webanvil-e2e-toolchain-local",
+    "private": true,
+    "type": "module",
+    "devDependencies": {
+        "@typescript/native-preview": "7.0.0-dev.20260707.2",
+        "oxfmt": "0.60.0",
+        "oxlint": "1.75.0",
+        "rolldown": "1.2.0",
+        "ts-patch": "3.2.1",
+        "typescript": "6.0.3",
+        "typescript-transform-paths": "3.5.5",
+        "unplugin": "3.3.0",
+        "vite": "8.1.5",
+        "vitest": "4.1.10",
+        "webanvil": "file:../../../.."
+    }
+}

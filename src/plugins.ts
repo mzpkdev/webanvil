@@ -1,8 +1,12 @@
 import type { Plugin as RolldownPlugin } from "rolldown"
-import type { UnpluginInstance } from "unplugin"
 import type { PluginOption } from "vite"
 
 import { NODE_PLUGIN_ERROR } from "./plugin-validation"
+
+export type WebAnvilUnplugin<Options> = {
+    rolldown: (options: Options) => RolldownPlugin | RolldownPlugin[]
+    vite: (options: Options) => PluginOption
+}
 
 export type UnpluginAdapter = {
     rolldown: () => RolldownPlugin | RolldownPlugin[]
@@ -11,7 +15,7 @@ export type UnpluginAdapter = {
 
 export type WebAnvilPlugin = PluginOption | UnpluginAdapter
 
-export const definePlugin = <Options>(plugin: UnpluginInstance<Options>, options: Options): UnpluginAdapter => ({
+export const definePlugin = <Options>(plugin: WebAnvilUnplugin<Options>, options: Options): UnpluginAdapter => ({
     rolldown: () => plugin.rolldown(options),
     vite: () => plugin.vite(options)
 })

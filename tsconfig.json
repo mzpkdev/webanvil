@@ -3,6 +3,10 @@
         "target": "ES2022",
         "module": "ESNext",
         "moduleResolution": "bundler",
+        "paths": {
+            "@/*": ["./e2e/fixtures/toolchain/local/src/*"],
+            "webanvil": ["./src/index.ts"]
+        },
         "resolveJsonModule": true,
         "verbatimModuleSyntax": true,
         "noEmit": true,

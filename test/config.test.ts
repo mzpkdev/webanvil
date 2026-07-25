@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { afterEach, describe, describe as context, expect, it, vi } from "vitest"
+import { afterEach, describe, describe as context, expect, expectTypeOf, it, vi } from "vitest"
 
 import {
     assertSyntaxTarget,
@@ -11,8 +11,24 @@ import {
     loadConfig,
     resolveEffectiveBuildConfig,
     syntaxTargetSchema,
+    userConfigSchema,
     withConfig
 } from "../src/config"
+import {
+    defineConfig as definePublicConfig,
+    type BuildConfig,
+    type ConfigExport,
+    type CopyMapping,
+    type FormatConfig,
+    type LintConfig,
+    type ResolvedConfig,
+    type RolldownConfig,
+    type SyntaxTarget,
+    type TestConfig,
+    type UserConfig,
+    type UserConfigFactory,
+    type ViteConfig
+} from "../src/index"
 import { platform, target } from "../src/options"
 
 const directories: string[] = []
@@ -44,6 +60,41 @@ describe("defineConfig", () => {
 
             expect(config()).toEqual({ build: { outDir: "output" } })
         })
+    })
+})
+
+describe("public configuration API", () => {
+    it("exports concrete config types and rejects unknown WebAnvil fields", () => {
+        type IsAny<T> = 0 extends 1 & T ? true : false
+
+        expectTypeOf<IsAny<BuildConfig>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<ConfigExport>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<CopyMapping>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<FormatConfig>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<LintConfig>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<ResolvedConfig>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<RolldownConfig>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<SyntaxTarget>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<TestConfig>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<UserConfig>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<UserConfigFactory>>().toEqualTypeOf<false>()
+        expectTypeOf<IsAny<ViteConfig>>().toEqualTypeOf<false>()
+
+        const objectConfig = definePublicConfig({ build: { mode: "node", outDir: "output" } })
+        const factoryConfig = definePublicConfig(() => ({ test: { environment: "node" } }))
+
+        expectTypeOf(objectConfig).toEqualTypeOf<UserConfig>()
+        expectTypeOf(factoryConfig).toEqualTypeOf<UserConfigFactory>()
+        expect(objectConfig.build?.outDir).toBe("output")
+        expect(factoryConfig()).toEqual({ test: { environment: "node" } })
+
+        const assertInvalidConfigTypes = (): void => {
+            // @ts-expect-error The public root rejects fields WebAnvil does not own.
+            definePublicConfig({ unknownField: true })
+            // @ts-expect-error The public build block rejects fields WebAnvil does not own.
+            definePublicConfig({ build: { unknownField: true } })
+        }
+        void assertInvalidConfigTypes
     })
 })
 
@@ -137,6 +188,55 @@ describe("loadConfig", () => {
         })
     })
 
+    context("with native tool configuration", () => {
+        it("loads compatible fields without WebAnvil-owned field validation", async () => {
+            const directory = await createDirectory()
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                `export default {
+                    vite: { base: "/app/", compatibleFutureField: { enabled: true } },
+                    test: { globals: true, setupFiles: ["test/setup.ts"], env: { FEATURE: "enabled" }, compatibleFutureField: true },
+                    rolldown: {
+                        input: { resolve: { alias: { "@": "./src" } }, compatibleFutureField: true },
+                        output: { esm: { entryFileNames: "[name].mjs", compatibleFutureField: true } }
+                    },
+                    format: { printWidth: 100, compatibleFutureField: true },
+                    lint: { rules: { "no-debugger": "deny" }, compatibleFutureField: true }
+                }`
+            )
+
+            await expect(loadConfig(directory)).resolves.toMatchObject({
+                config: {
+                    vite: { base: "/app/", compatibleFutureField: { enabled: true } },
+                    test: {
+                        globals: true,
+                        setupFiles: ["test/setup.ts"],
+                        env: { FEATURE: "enabled" },
+                        compatibleFutureField: true
+                    },
+                    rolldown: {
+                        input: {
+                            resolve: { alias: { "@": "./src" } },
+                            compatibleFutureField: true
+                        },
+                        output: {
+                            esm: { entryFileNames: "[name].mjs", compatibleFutureField: true }
+                        }
+                    },
+                    format: { printWidth: 100, compatibleFutureField: true },
+                    lint: { rules: { "no-debugger": "deny" }, compatibleFutureField: true }
+                }
+            })
+        })
+
+        it.each(["vite", "test", "rolldown", "format", "lint"])("rejects a non-object %s block", async (key) => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "webanvil.config.ts"), `export default { ${key}: [] }`)
+
+            await expect(loadConfig(directory)).rejects.toThrow("Expected a configuration object")
+        })
+    })
+
     context("with a config factory", () => {
         it("resolves the returned config", async () => {
             const directory = await createDirectory()
@@ -187,11 +287,13 @@ describe("loadConfig", () => {
             await expect(loadConfig(directory)).rejects.toThrow()
         })
 
-        it("rejects empty test environments", async () => {
+        it("leaves native test-field validation to Vitest", async () => {
             const directory = await createDirectory()
             await writeFile(join(directory, "webanvil.config.ts"), 'export default { test: { environment: "" } }')
 
-            await expect(loadConfig(directory)).rejects.toThrow()
+            await expect(loadConfig(directory)).resolves.toMatchObject({
+                config: { test: { environment: "" } }
+            })
         })
     })
 })
@@ -219,6 +321,52 @@ describe("syntaxTargetSchema", () => {
         ])
         expect(() => assertSyntaxTarget(["es2022", legacy])).toThrow(
             `build.target no longer selects a platform; use build.platform: "${legacy}" instead`
+        )
+    })
+})
+
+describe("native configuration schemas", () => {
+    it("preserves native functions and plugin objects by identity", () => {
+        const vitePlugin = { name: "vite-native", transform: vi.fn() }
+        const rolldownPlugin = { name: "rolldown-native", transform: vi.fn() }
+        const rolldownPlugins = [rolldownPlugin]
+        const entryFileNames = vi.fn(() => "index.mjs")
+        const sequence = { hooks: "list" as const }
+        const config = {
+            vite: { plugins: [vitePlugin] },
+            test: { sequence },
+            rolldown: {
+                input: { plugins: rolldownPlugins },
+                output: { esm: { entryFileNames } }
+            }
+        }
+
+        const parsed = userConfigSchema.parse(config)
+
+        expect(parsed.vite?.plugins?.[0]).toBe(vitePlugin)
+        expect(parsed.test?.sequence).toBe(sequence)
+        expect(parsed.rolldown?.input?.plugins).toBe(rolldownPlugins)
+        expect(parsed.rolldown?.output?.esm?.entryFileNames).toBe(entryFileNames)
+    })
+})
+
+describe("declaration configuration", () => {
+    it("accepts the native plugin options object unchanged", () => {
+        const declaration = {
+            generator: "tsc" as const,
+            compilerOptions: { stripInternal: true },
+            newContext: false,
+            sourcemap: true
+        }
+
+        expect(userConfigSchema.parse({ build: { declaration } }).build?.declaration).toBe(declaration)
+    })
+
+    it("lets an explicit CLI boolean replace the configured object", () => {
+        const declaration = { generator: "oxc" as const, oxc: { stripInternal: true } }
+
+        expect(resolveEffectiveBuildConfig({ build: { declaration } }, { declaration: false }, false).declaration).toBe(
+            false
         )
     })
 })
@@ -260,13 +408,20 @@ describe("effectiveUserConfigSchema", () => {
             ).toBe(true)
         })
 
-        it.each([
-            { mode: "node" as const, bundle: false },
-            { mode: "node" as const },
-            { mode: "web" as const, bundle: true }
-        ])("rejects entries outside bundled Node mode", (build) => {
+        it.each([{ mode: "node" as const, bundle: false }, { mode: "node" as const }])(
+            "accepts entries in unbundled Node mode",
+            (build) => {
+                expect(
+                    effectiveUserConfigSchema.safeParse({
+                        build: { ...build, entries: { ".": "src/index.ts" } }
+                    }).success
+                ).toBe(true)
+            }
+        )
+
+        it("rejects entries in web mode", () => {
             const result = effectiveUserConfigSchema.safeParse({
-                build: { ...build, entries: { ".": "src/index.ts" } }
+                build: { mode: "web", bundle: true, entries: { ".": "src/index.ts" } }
             })
 
             expect(result.success).toBe(false)
@@ -274,7 +429,7 @@ describe("effectiveUserConfigSchema", () => {
             expect(result.error.issues).toEqual([
                 expect.objectContaining({
                     path: ["build", "entries"],
-                    message: "build.entries requires bundled Node mode"
+                    message: "build.entries is only available in Node mode"
                 })
             ])
         })
@@ -382,7 +537,7 @@ describe("resolveEffectiveBuildConfig", () => {
                 {},
                 false
             )
-        ).toThrow("build.entries requires bundled Node mode")
+        ).toThrow("build.entries is only available in Node mode")
     })
 })
 

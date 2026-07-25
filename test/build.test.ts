@@ -1,18 +1,22 @@
 import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
+import { createRequire } from "node:module"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { execute } from "cmdore"
+import type { Plugin as RolldownPlugin } from "rolldown"
 import { afterEach, describe, describe as context, expect, it } from "vitest"
 import { createUnplugin } from "unplugin"
 
 import buildCommand, { build } from "../src/commands/build"
+import { clean } from "../src/commands/clean"
 import { readBuildInfo } from "../src/core/build-info"
-import { createNodeBuildPlan } from "../src/core/node-build"
+import { createNodeBuildPlan, type NodeBuildOptions } from "../src/core/node-build"
 import { definePlugin } from "../src/plugins"
 
 const directories: string[] = []
 const initialDirectory = process.cwd()
+const initialNodeEnvironment = process.env.NODE_ENV
 const replace = createUnplugin<{ from: string; to: string }>((options) => ({
     name: "replace",
     transform: (code) => code.replace(options.from, options.to)
@@ -26,10 +30,37 @@ const createDirectory = async (): Promise<string> => {
 
 afterEach(async () => {
     process.chdir(initialDirectory)
+    if (initialNodeEnvironment === undefined) delete process.env.NODE_ENV
+    else process.env.NODE_ENV = initialNodeEnvironment
     await Promise.all(directories.splice(0).map((directory) => rm(directory, { force: true, recursive: true })))
 })
 
 describe("build", () => {
+    it("preflights engines before evaluating project configuration", async () => {
+        const directory = await createDirectory()
+        await mkdir(join(directory, "node_modules", "rolldown"), { recursive: true })
+        await writeFile(join(directory, "package.json"), JSON.stringify({ devDependencies: { rolldown: "99.0.0" } }))
+        await writeFile(
+            join(directory, "node_modules", "rolldown", "package.json"),
+            JSON.stringify({ name: "rolldown", version: "99.0.0", main: "./index.js" })
+        )
+        await writeFile(join(directory, "node_modules", "rolldown", "index.js"), "export const rolldown = () => {}")
+        await writeFile(
+            join(directory, "webanvil.config.ts"),
+            'import { writeFileSync } from "node:fs"; writeFileSync("config-loaded", "yes"); export default {}'
+        )
+        process.chdir(directory)
+
+        await expect(
+            execute([buildCommand], {
+                argv: ["build"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+        ).rejects.toThrow("rolldown 99.0.0 is incompatible")
+        await expect(access(join(directory, "config-loaded"))).rejects.toThrow()
+    })
+
     context("with --copy", () => {
         it("keeps configured mappings when the option is absent", async () => {
             const directory = await createDirectory()
@@ -79,6 +110,55 @@ describe("build", () => {
     })
 
     context("with a Node entry", () => {
+        it("lets --no-bundle override configured bundling", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "./feature"\n')
+            await writeFile(join(directory, "src", "feature.ts"), 'export const value = "preserved"\n')
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { mode: "node", bundle: true } }'
+            )
+            process.chdir(directory)
+
+            await execute([buildCommand], {
+                argv: ["build", "--no-bundle"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+
+            await expect(readFile(join(directory, "dist", "feature.js"), "utf8")).resolves.toContain("preserved")
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("./feature.js")
+        })
+
+        it.each([
+            { formats: ["esm"] as const, combined: true },
+            { formats: ["cjs"] as const, combined: false },
+            { formats: ["esm", "cjs"] as const, combined: false }
+        ])("plans declarations exactly once for $formats", async ({ formats, combined }) => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const value: boolean = true\n")
+            process.chdir(directory)
+
+            const plan = await createNodeBuildPlan(
+                "src/index.ts",
+                "dist",
+                { bundle: true, declaration: true, formats: [...formats] },
+                []
+            )
+            const mainPluginNames = ((plan.output.input.plugins ?? []) as RolldownPlugin[]).map((plugin) =>
+                typeof plugin === "object" && plugin !== null && "name" in plugin ? plugin.name : undefined
+            )
+
+            expect(mainPluginNames.some((name) => String(name).startsWith("rolldown-plugin-dts:"))).toBe(combined)
+            expect(plan.declarationOutput !== undefined).toBe(!combined)
+            if (!combined) {
+                expect(plan.declarationOutput?.output).toHaveLength(1)
+                expect(plan.declarationOutput?.output[0]?.format).toBe("es")
+            }
+        })
+
         it.each([false, true])("defaults platform and target for bundle=%s", async (bundle) => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src"), { recursive: true })
@@ -105,7 +185,9 @@ describe("build", () => {
             )
 
             expect(plan.output.input.platform).toBe("neutral")
-            expect(plan.output.input.transform).toMatchObject({ target: ["es2022", "chrome100"] })
+            expect(plan.output.input.transform).toMatchObject({
+                target: ["es2022", "chrome100"]
+            })
         })
 
         it("rejects a raw Vite plugin passed directly to a Node build", async () => {
@@ -205,10 +287,15 @@ describe("build", () => {
             await expect(access(join(directory, "dist", "configured.js"))).rejects.toThrow()
         })
 
-        it("rejects configured entries without bundled output", async () => {
-            await expect(build("node", "src/index.ts", "dist", { entries: { ".": "src/index.ts" } })).rejects.toThrow(
-                "Node build entries require bundle: true"
-            )
+        it("accepts configured entries without bundled output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const value = true\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { entries: { ".": "src/index.ts" } })
+
+            await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
         })
 
         it("copies static files and records them as build output", async () => {
@@ -219,7 +306,9 @@ describe("build", () => {
             await writeFile(join(directory, "assets", "images", "logo.txt"), "logo\n")
             process.chdir(directory)
 
-            await build("node", "src/index.ts", "dist", { copy: [{ from: "assets/**", to: "assets" }] })
+            await build("node", "src/index.ts", "dist", {
+                copy: [{ from: "assets/**", to: "assets" }]
+            })
 
             await expect(readFile(join(directory, "dist", "assets", "images", "logo.txt"), "utf8")).resolves.toBe(
                 "logo\n"
@@ -236,7 +325,9 @@ describe("build", () => {
             process.chdir(directory)
 
             await expect(
-                build("node", "src/index.ts", "dist", { copy: [{ from: "assets/index.js", to: "." }] })
+                build("node", "src/index.ts", "dist", {
+                    copy: [{ from: "assets/index.js", to: "." }]
+                })
             ).rejects.toThrow("collides with generated output")
             await expect(access(join(directory, "dist", "index.js"))).rejects.toThrow()
         })
@@ -252,7 +343,9 @@ describe("build", () => {
             process.chdir(directory)
 
             await expect(
-                build("node", "src/index.ts", "dist", { copy: [{ from: "assets/**", to: "assets" }] })
+                build("node", "src/index.ts", "dist", {
+                    copy: [{ from: "assets/**", to: "assets" }]
+                })
             ).rejects.toThrow("already exists")
             await expect(readFile(join(directory, "dist", "assets", "logo.txt"), "utf8")).resolves.toBe("keep\n")
         })
@@ -285,9 +378,18 @@ describe("build", () => {
         it("keeps runtime bare imports external in source-tree output", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "node_modules", "pathe"), { recursive: true })
             await writeFile(
                 join(directory, "src", "index.ts"),
                 'import { join } from "pathe"\nexport const output = join("dist", "index.js")\n'
+            )
+            await writeFile(
+                join(directory, "node_modules", "pathe", "package.json"),
+                JSON.stringify({ name: "pathe", exports: "./index.js", type: "module" })
+            )
+            await writeFile(
+                join(directory, "node_modules", "pathe", "index.js"),
+                "export const join = (...v) => v.join('/')"
             )
             process.chdir(directory)
 
@@ -367,6 +469,322 @@ describe("build", () => {
             await expect(access(join(directory, "dist", "lib", "greeting.js"))).rejects.toThrow()
             await expect(readFile(join(directory, "dist", "keep.js"), "utf8")).resolves.toBe("authored\n")
         })
+
+        it("emits only the reachable graph from multiple unbundled public entries", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src", "shared"), { recursive: true })
+            await mkdir(join(directory, "src", "spec"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { shared } from "./shared/value"\n')
+            await writeFile(join(directory, "src", "feature.ts"), 'export { shared } from "./shared/value"\n')
+            await writeFile(join(directory, "src", "shared", "value.ts"), "export const shared = true\n")
+            await writeFile(join(directory, "src", "spec", "index.test.ts"), "throw new Error('do not emit')\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", {
+                entries: { ".": "src/index.ts", "./feature": "src/feature.ts" }
+            })
+
+            await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "feature.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "shared", "value.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "spec", "index.test.js"))).rejects.toThrow()
+        })
+
+        it("resolves TypeScript paths before externalization", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src", "common"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "@/common/value"\n')
+            await writeFile(join(directory, "src", "common", "value.ts"), 'export const value = "local"\n')
+            await writeFile(
+                join(directory, "tsconfig.json"),
+                JSON.stringify({ compilerOptions: { baseUrl: ".", paths: { "@/*": ["src/*"] } } })
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist")
+
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.not.toContain("@/")
+            await expect(access(join(directory, "dist", "common", "value.js"))).resolves.toBeUndefined()
+        })
+
+        it("honors native resolver aliases and explicit external overrides", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { local } from "#local"\n')
+            await writeFile(join(directory, "src", "local.ts"), "export const local = true\n")
+            process.chdir(directory)
+
+            await build(
+                "node",
+                "src/index.ts",
+                "dist",
+                { bundle: true },
+                [],
+                {},
+                {
+                    input: { resolve: { alias: { "#local": join(directory, "src", "local.ts") } } }
+                }
+            )
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.not.toContain("#local")
+
+            await build(
+                "node",
+                "src/index.ts",
+                "external",
+                { bundle: true },
+                [],
+                {},
+                {
+                    input: { external: ["#local"] }
+                }
+            )
+            await expect(readFile(join(directory, "external", "index.js"), "utf8")).resolves.toContain("#local")
+        })
+
+        it("externalizes installed packages resolved through native plugins with the original specifier", async () => {
+            const directory = await createDirectory()
+            const defuEntry = createRequire(import.meta.url).resolve("defu")
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                'export { default as mergeDefaults } from "dep-alias"\n'
+            )
+            process.chdir(directory)
+
+            await build(
+                "node",
+                "src/index.ts",
+                "dist",
+                { bundle: true },
+                [],
+                {},
+                {
+                    input: {
+                        plugins: [
+                            {
+                                name: "native-dependency-alias",
+                                resolveId: {
+                                    order: "pre",
+                                    handler: (source) => (source === "dep-alias" ? defuEntry : null)
+                                }
+                            }
+                        ]
+                    }
+                }
+            )
+
+            const output = await readFile(join(directory, "dist", "index.js"), "utf8")
+            expect(output).toContain('"dep-alias"')
+            expect(output).not.toContain("isPlainObject")
+        })
+
+        it("keeps virtual aliases resolved through native plugins internal", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "virtual-alias"\n')
+            process.chdir(directory)
+
+            await build(
+                "node",
+                "src/index.ts",
+                "dist",
+                { bundle: true },
+                [],
+                {},
+                {
+                    input: {
+                        plugins: [
+                            {
+                                name: "native-virtual-alias",
+                                resolveId: (source) => (source === "virtual-alias" ? "\0native-virtual" : null),
+                                load: (id) => (id === "\0native-virtual" ? 'export const value = "internal"\n' : null)
+                            }
+                        ]
+                    }
+                }
+            )
+
+            const output = await readFile(join(directory, "dist", "index.js"), "utf8")
+            expect(output).not.toContain("virtual-alias")
+            expect(output).toContain("internal")
+        })
+
+        it("uses ESM and browser export conditions while resolving external packages", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "node_modules", "conditional"), { recursive: true })
+            await mkdir(join(directory, "node_modules", "browser-only"), { recursive: true })
+            await writeFile(
+                join(directory, "node_modules", "conditional", "package.json"),
+                JSON.stringify({
+                    name: "conditional",
+                    type: "module",
+                    exports: { import: "./import.js" }
+                })
+            )
+            await writeFile(join(directory, "node_modules", "conditional", "import.js"), "export const value = true\n")
+            await writeFile(
+                join(directory, "node_modules", "browser-only", "package.json"),
+                JSON.stringify({
+                    name: "browser-only",
+                    type: "module",
+                    exports: { browser: "./browser.js" }
+                })
+            )
+            await writeFile(
+                join(directory, "node_modules", "browser-only", "browser.js"),
+                "export const browser = true\n"
+            )
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                'export { value } from "conditional"\nexport { browser } from "browser-only"\n'
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { platform: "browser" })
+            const output = await readFile(join(directory, "dist", "index.js"), "utf8")
+            expect(output).toContain('"conditional"')
+            expect(output).toContain('"browser-only"')
+
+            await expect(build("node", "src/index.ts", "node-dist")).rejects.toThrow('Could not resolve "browser-only"')
+        })
+
+        it("fails unresolved bare imports without replacing a prior successful build", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export const value = "previous"\n')
+            process.chdir(directory)
+            await build("node", "src/index.ts", "dist")
+            const previous = await readFile(join(directory, "dist", "index.js"), "utf8")
+
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "misspelled-package"\n')
+            await expect(build("node", "src/index.ts", "dist")).rejects.toThrow(
+                'Could not resolve "misspelled-package"'
+            )
+
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toBe(previous)
+            expect((await readBuildInfo(directory)).output).toEqual(["dist/index.js"])
+        })
+
+        it("builds twice when output overlaps the source tree", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const value = true\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "src/generated")
+            await build("node", "src/index.ts", "src/generated")
+
+            await expect(access(join(directory, "src", "generated", "index.js"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "src", "generated", "generated", "index.js"))).rejects.toThrow()
+        })
+
+        it("builds declarations twice when output overlaps the project root", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.ts"), "export const value: boolean = true\n")
+            process.chdir(directory)
+
+            const options = {
+                bundle: true,
+                declaration: true,
+                formats: ["esm", "cjs"]
+            } satisfies NodeBuildOptions
+            await build("node", "index.ts", ".", options)
+            await writeFile(join(directory, "index.d.ts"), "stale tracked declaration\n")
+            await build("node", "index.ts", ".", options)
+
+            await expect(readFile(join(directory, "index.d.ts"), "utf8")).resolves.toContain(
+                "declare const value: boolean"
+            )
+            expect((await readBuildInfo(directory)).output).toEqual(["index.cjs", "index.d.ts", "index.js"])
+        })
+
+        it("rejects an authored declaration at a planned project-root output", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.ts"), "export const value: boolean = true\n")
+            await writeFile(join(directory, "index.d.ts"), "export declare const authored: true\n")
+            process.chdir(directory)
+
+            await expect(
+                build("node", "index.ts", ".", {
+                    bundle: true,
+                    declaration: true,
+                    formats: ["esm", "cjs"]
+                })
+            ).rejects.toThrow("Node generated output index.d.ts aliases authored source index.d.ts")
+
+            await expect(readFile(join(directory, "index.d.ts"), "utf8")).resolves.toBe(
+                "export declare const authored: true\n"
+            )
+            await expect(readBuildInfo(directory)).resolves.toEqual({ output: [] })
+
+            await clean()
+
+            await expect(readFile(join(directory, "index.d.ts"), "utf8")).resolves.toBe(
+                "export declare const authored: true\n"
+            )
+        })
+
+        it("rejects output that aliases an authored source without recording it", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.js"), 'export { value } from "./value.js"\n')
+            await writeFile(join(directory, "src", "value.js"), "export const value = true\n")
+            process.chdir(directory)
+
+            await expect(build("node", "src/index.js", "src")).rejects.toThrow(
+                "Node generated output src/index.js aliases authored source src/index.js"
+            )
+
+            await expect(readFile(join(directory, "src", "index.js"), "utf8")).resolves.toBe(
+                'export { value } from "./value.js"\n'
+            )
+            await expect(readFile(join(directory, "src", "value.js"), "utf8")).resolves.toBe(
+                "export const value = true\n"
+            )
+            await expect(readBuildInfo(directory)).resolves.toEqual({ output: [] })
+        })
+
+        it("rejects generated and copied output that aliases a reachable authored source", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "assets"), { recursive: true })
+            await writeFile(join(directory, "src", "index.js"), 'export { value } from "./value.js"\n')
+            await writeFile(join(directory, "src", "value.js"), "export const value = true\n")
+            await writeFile(join(directory, "assets", "value.js"), "copied\n")
+            process.chdir(directory)
+
+            await expect(
+                build(
+                    "node",
+                    "src/index.js",
+                    "src",
+                    { bundle: true, entries: { "./value": "src/index.js" } },
+                    [],
+                    {},
+                    { output: { esm: { entryFileNames: "[name].js" } } }
+                )
+            ).rejects.toThrow("Node generated output src/value.js aliases authored source src/value.js")
+
+            await expect(
+                build(
+                    "node",
+                    "src/index.js",
+                    "src",
+                    {
+                        bundle: true,
+                        copy: [{ from: "assets/value.js", to: "." }]
+                    },
+                    [],
+                    {},
+                    { output: { esm: { entryFileNames: "generated.js" } } }
+                )
+            ).rejects.toThrow("Node copied output src/value.js aliases authored source src/value.js")
+
+            await expect(readFile(join(directory, "src", "value.js"), "utf8")).resolves.toBe(
+                "export const value = true\n"
+            )
+        })
     })
 
     context("with a bundled Node entry", () => {
@@ -417,6 +835,89 @@ describe("build", () => {
             ])
         })
 
+        it("uses the regular TypeScript compiler for valid non-isolated source", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                "export const greeting = (name: string) => ({ name, message: `Hello ${name}` })\n"
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", {
+                bundle: true,
+                declaration: true
+            })
+
+            await expect(readFile(join(directory, "dist", "index.d.ts"), "utf8")).resolves.toContain("message: string")
+        })
+
+        it.each(["oxc", "tsgo"] as const)("supports the explicit %s declaration generator", async (generator) => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                "export const greeting = (name: string): string => `Hello ${name}`\n"
+            )
+            await writeFile(
+                join(directory, "tsconfig.json"),
+                JSON.stringify({
+                    compilerOptions: {
+                        module: "esnext",
+                        moduleResolution: "bundler",
+                        strict: true,
+                        target: "es2022"
+                    },
+                    include: ["src/**/*.ts"]
+                })
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", {
+                bundle: true,
+                declaration: { generator }
+            })
+
+            await expect(readFile(join(directory, "dist", "index.d.ts"), "utf8")).resolves.toContain("greeting")
+        })
+
+        it("records declaration maps emitted through native declaration configuration", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const value: boolean = true\n")
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", {
+                bundle: true,
+                declaration: { sourcemap: true }
+            })
+
+            await expect(access(join(directory, "dist", "index.d.ts.map"))).resolves.toBeUndefined()
+            expect((await readBuildInfo(directory)).output).toContain("dist/index.d.ts.map")
+        })
+
+        it("rejects TypeScript emit transforms for the Oxc generator", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const value: boolean = true\n")
+            await writeFile(
+                join(directory, "tsconfig.json"),
+                JSON.stringify({
+                    compilerOptions: {
+                        plugins: [{ transform: "typescript-transform-paths", afterDeclarations: true }]
+                    }
+                })
+            )
+            process.chdir(directory)
+
+            await expect(
+                build("node", "src/index.ts", "dist", {
+                    bundle: true,
+                    declaration: { generator: "oxc" }
+                })
+            ).rejects.toThrow('require build.declaration.generator "tsc"')
+        })
+
         it("uses configured entries for multiple public outputs", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src"), { recursive: true })
@@ -436,11 +937,20 @@ describe("build", () => {
         it("uses public JavaScript and declaration names for a renamed bundled entry", async () => {
             const directory = await createDirectory()
             await mkdir(join(directory, "src", "internal"), { recursive: true })
+            await mkdir(join(directory, "node_modules", "pathe"), { recursive: true })
             await writeFile(
                 join(directory, "src", "internal", "implementation.ts"),
                 'import { statSync } from "node:fs"\n' +
                     'import { join } from "pathe"\n' +
                     "export const feature = (...parts: string[]): boolean => statSync(join(...parts)).isFile()\n"
+            )
+            await writeFile(
+                join(directory, "node_modules", "pathe", "package.json"),
+                JSON.stringify({ name: "pathe", exports: "./index.js", type: "module" })
+            )
+            await writeFile(
+                join(directory, "node_modules", "pathe", "index.js"),
+                "export const join = (...v) => v.join('/')"
             )
             process.chdir(directory)
 
@@ -490,9 +1000,178 @@ describe("build", () => {
                 })
             ).rejects.toThrow("resolve to the same source file")
         })
+
+        it("rejects public entry names that normalize to the same output name", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "root.ts"), "export const root = true\n")
+            await writeFile(join(directory, "src", "index.ts"), "export const index = true\n")
+            process.chdir(directory)
+
+            await expect(
+                build("node", "src/root.ts", "dist", {
+                    bundle: true,
+                    entries: { ".": "src/root.ts", "./index": "src/index.ts" }
+                })
+            ).rejects.toThrow("Node entries . and ./index normalize to the same public name: index")
+        })
+
+        it("uses native per-format output names and records actual paths", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const value = true\n")
+            process.chdir(directory)
+
+            await build(
+                "node",
+                "src/index.ts",
+                "dist",
+                { bundle: true, formats: ["esm", "cjs"] },
+                [],
+                {},
+                {
+                    output: {
+                        esm: { entryFileNames: (chunk) => `${chunk.name}.mjs` },
+                        cjs: { entryFileNames: "[name].js" }
+                    }
+                }
+            )
+
+            await expect(access(join(directory, "dist", "index.mjs"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "dist", "index.js"))).resolves.toBeUndefined()
+            expect((await readBuildInfo(directory)).output).toEqual(["dist/index.js", "dist/index.mjs"])
+        })
+
+        it("rejects cross-format collisions before replacing prior output", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export const value = "keep"\n')
+            process.chdir(directory)
+            await build("node", "src/index.ts", "dist", { bundle: true })
+            const previous = await readFile(join(directory, "dist", "index.js"), "utf8")
+
+            await expect(
+                build(
+                    "node",
+                    "src/index.ts",
+                    "dist",
+                    { bundle: true, formats: ["esm", "cjs"] },
+                    [],
+                    {},
+                    {
+                        output: {
+                            esm: { entryFileNames: "[name].js" },
+                            cjs: { entryFileNames: "[name].js" }
+                        }
+                    }
+                )
+            ).rejects.toThrow("outputs collide at index.js")
+
+            await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toBe(previous)
+        })
     })
 
     context("with a web entry", () => {
+        it("lets native Vite settings override WebAnvil config and explicit CLI settings win last", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), "document.body.textContent = 'native'\n")
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                `export default {
+                    build: { mode: "web", entry: "index.html", outDir: "webanvil-dist", minify: true },
+                    vite: { build: { outDir: "native-dist", minify: false } }
+                }`
+            )
+            process.chdir(directory)
+
+            await execute([buildCommand], {
+                argv: ["build"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+            await expect(access(join(directory, "native-dist", "index.html"))).resolves.toBeUndefined()
+
+            await execute([buildCommand], {
+                argv: ["build", "--out-dir", "cli-dist", "--minify", "true"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+            await expect(access(join(directory, "cli-dist", "index.html"))).resolves.toBeUndefined()
+        })
+
+        it("passes the native Vite block through without cloning plugin objects", async () => {
+            const directory = await createDirectory()
+            const nativePlugin = { name: "native-vite-plugin" }
+            process.chdir(directory)
+
+            const resolved = await build.webConfig("index.html", "dist", {}, [], {
+                base: "/questline/",
+                plugins: [nativePlugin]
+            })
+
+            expect(resolved.config.base).toBe("/questline/")
+            expect(resolved.config.plugins).toContain(nativePlugin)
+        })
+
+        it("lets a native Vite config file take precedence over the WebAnvil Vite block", async () => {
+            const directory = await createDirectory()
+            const observed: string[] = []
+            await writeFile(join(directory, "vite.config.ts"), "export default { base: '/native-file/' }\n")
+            process.chdir(directory)
+
+            const resolved = await build.webConfig("index.html", "dist", {}, [], {
+                base: "/webanvil-block/",
+                plugins: [
+                    {
+                        name: "webanvil-block-observer",
+                        configResolved: () => {
+                            observed.push("loaded")
+                        }
+                    }
+                ]
+            })
+
+            expect(resolved.config).not.toHaveProperty("base")
+            expect(observed).toEqual([])
+        })
+
+        it("resolves a build with Vite production defaults", async () => {
+            const directory = await createDirectory()
+            const resolved: Array<{ mode: string; nodeEnvironment: string | undefined }> = []
+            delete process.env.NODE_ENV
+            process.chdir(directory)
+
+            await build.webConfig("index.html", "dist", {}, [
+                {
+                    name: "resolved-environment-observer",
+                    configResolved: (config) => {
+                        resolved.push({ mode: config.mode, nodeEnvironment: process.env.NODE_ENV })
+                    }
+                }
+            ])
+
+            expect(resolved).toEqual([{ mode: "production", nodeEnvironment: "production" }])
+        })
+
+        it("preserves an explicitly supplied NODE_ENV", async () => {
+            const directory = await createDirectory()
+            const resolved: Array<{ mode: string; nodeEnvironment: string | undefined }> = []
+            process.env.NODE_ENV = "development"
+            process.chdir(directory)
+
+            await build.webConfig("index.html", "dist", {}, [
+                {
+                    name: "resolved-environment-observer",
+                    configResolved: (config) => {
+                        resolved.push({ mode: config.mode, nodeEnvironment: process.env.NODE_ENV })
+                    }
+                }
+            ])
+
+            expect(resolved).toEqual([{ mode: "production", nodeEnvironment: "development" }])
+        })
+
         it("omits a web target unless one is explicit", async () => {
             const directory = await createDirectory()
             process.chdir(directory)
@@ -575,7 +1254,9 @@ describe("build", () => {
             process.chdir(directory)
 
             await expect(
-                build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+                build("web", "index.html", "dist", {
+                    copy: [{ from: "assets/robots.txt", to: "." }]
+                })
             ).rejects.toThrow("collides with generated output")
             await expect(readFile(join(directory, "dist", "robots.txt"), "utf8")).resolves.toBe("keep\n")
         })
@@ -589,11 +1270,15 @@ describe("build", () => {
             await writeFile(join(directory, "assets", "robots.txt"), "copied\n")
             process.chdir(directory)
 
-            await build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+            await build("web", "index.html", "dist", {
+                copy: [{ from: "assets/robots.txt", to: "." }]
+            })
             await writeFile(join(directory, "public", "robots.txt"), "public\n")
 
             await expect(
-                build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+                build("web", "index.html", "dist", {
+                    copy: [{ from: "assets/robots.txt", to: "." }]
+                })
             ).rejects.toThrow("collides with generated output")
             await expect(readFile(join(directory, "dist", "robots.txt"), "utf8")).resolves.toBe("copied\n")
         })
@@ -609,7 +1294,9 @@ describe("build", () => {
             process.chdir(directory)
 
             await expect(
-                build("web", "index.html", "dist", { copy: [{ from: "assets/robots.txt", to: "." }] })
+                build("web", "index.html", "dist", {
+                    copy: [{ from: "assets/robots.txt", to: "." }]
+                })
             ).rejects.toThrow("collides with generated output")
         })
 
@@ -657,6 +1344,34 @@ describe("build", () => {
     })
 
     context("with a Vite config file", () => {
+        it("applies explicit CLI build overrides over a native Vite config file", async () => {
+            const directory = await createDirectory()
+            await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "alternate.html"), '<script type="module" src="/main.ts"></script>')
+            await writeFile(join(directory, "main.ts"), "document.body.textContent = 'cli'\n")
+            await writeFile(
+                join(directory, "vite.config.ts"),
+                'export default { build: { outDir: "native-dist", minify: true, sourcemap: false } }'
+            )
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { mode: "web", entry: "index.html" } }'
+            )
+            process.chdir(directory)
+
+            await execute([buildCommand], {
+                argv: ["build", "alternate.html", "--out-dir", "cli-dist", "--minify", "false", "--sourcemap", "true"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+
+            await expect(access(join(directory, "cli-dist", "alternate.html"))).resolves.toBeUndefined()
+            await expect(access(join(directory, "native-dist"))).rejects.toThrow()
+            expect((await readdir(join(directory, "cli-dist", "assets"))).some((file) => file.endsWith(".map"))).toBe(
+                true
+            )
+        })
+
         it("keeps target false authoritative over a WebAnvil target", async () => {
             const directory = await createDirectory()
             await writeFile(join(directory, "index.html"), '<script type="module" src="/main.ts"></script>')

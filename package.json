@@ -5,12 +5,26 @@
         "wa": "bin/webanvil",
         "webanvil": "bin/webanvil"
     },
+    "files": [
+        "bin",
+        "dist",
+        "README.md"
+    ],
     "type": "module",
     "main": "./dist/index.mjs",
+    "types": "./dist/index.d.mts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.mts",
+            "import": "./dist/index.mjs",
+            "default": "./dist/index.mjs"
+        }
+    },
     "scripts": {
         "build": "obuild",
+        "prepack": "npm run build",
         "pretest": "npm run build",
-        "test": "vitest run --passWithNoTests",
+        "test": "vitest run --passWithNoTests --config vitest.repo.config.ts",
         "test:watch": "vitest",
         "typecheck": "npm run build && node bin/webanvil typecheck",
         "lint": "npm run build && node bin/webanvil lint",
@@ -20,7 +34,8 @@
         "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
     },
     "dependencies": {
-        "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+        "@types/node": "^26.1.1",
+        "@typescript/native-preview": "7.0.0-dev.20260707.2",
         "@vitest/coverage-v8": "^4.1.10",
         "@vitest/ui": "^4.1.10",
         "c12": "^4.0.0-beta.5",
@@ -28,21 +43,24 @@
         "consola": "^3.4.2",
         "defu": "^6.1.7",
         "execa": "^9.6.1",
+        "get-tsconfig": "5.0.0-beta.5",
         "jsdom": "^29.1.1",
         "mlly": "^1.8.2",
+        "oxfmt": "0.60.0",
+        "oxlint": "1.75.0",
         "pathe": "^2.0.3",
         "pkg-types": "^2.3.1",
-        "rolldown": "^1.2.0",
+        "rolldown": "1.2.0",
+        "rolldown-plugin-dts": "0.27.13",
+        "semver": "7.8.5",
         "tinyglobby": "^0.2.15",
+        "typescript": "6.0.3",
         "unplugin": "^3.3.0",
-        "vite": "^8.1.5",
-        "vitest": "^4.1.10",
+        "vite": "8.1.5",
+        "vitest": "4.1.10",
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@types/node": "^26.1.1",
-        "obuild": "^0.4.38",
-        "oxfmt": "^0.60.0",
-        "oxlint": "^1.75.0"
+        "obuild": "^0.4.38"
     }
 }

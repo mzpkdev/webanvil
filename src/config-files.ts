@@ -7,10 +7,10 @@ export const hasFile = async (path: string): Promise<boolean> =>
         .catch(() => false)
 
 export const hasToolConfig = async (name: "vite" | "vitest", cwd = process.cwd()): Promise<boolean> => {
-    const prefix = `${name}.config.`
-    const files = await readdir(cwd).catch(() => [])
+    const files: string[] = await readdir(cwd).catch(() => [])
+    const extensions = ["js", "mjs", "cjs", "ts", "mts", "cts"]
 
-    return files.some((file) => file === `${name}.config` || file.startsWith(prefix))
+    return extensions.some((extension) => files.includes(`${name}.config.${extension}`))
 }
 
 export const hasOxcConfig = (name: "oxfmt" | "oxlint", cwd = process.cwd()): Promise<boolean> =>

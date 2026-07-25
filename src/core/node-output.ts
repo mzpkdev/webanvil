@@ -1,57 +1,46 @@
-import { mkdir, mkdtemp, rename, rm, rmdir } from "node:fs/promises"
-import { dirname, relative, resolve } from "pathe"
-
-import {
-    type InputOptions,
-    type OutputOptions,
-    type Plugin as RolldownPlugin,
-    type RolldownBuild,
-    rolldown
+import { dirname, isAbsolute, relative, resolve } from "pathe"
+import type {
+    InputOptions,
+    OutputAsset,
+    OutputChunk,
+    OutputOptions,
+    Plugin as RolldownPlugin,
+    RolldownOutput
 } from "rolldown"
-import { isolatedDeclarationPlugin } from "rolldown/experimental"
-import { glob } from "tinyglobby"
 
-import { assertSyntaxTarget, type SyntaxTarget } from "../config"
+import { assertSyntaxTarget, type RolldownConfig, type SyntaxTarget } from "../config"
+import { projectExternalPlugin } from "./node-resolve"
 
 type NodePlatform = "node" | "browser" | "neutral"
+type NodeFormat = "esm" | "cjs"
+
+export type NodeOutputPlan = {
+    authoredInputs: string[]
+    input: InputOptions
+    outDir: string
+    output: OutputOptions[]
+}
+
+export type GeneratedNodeFile = {
+    fileName: string
+    source: string | Uint8Array
+}
 
 type NodeOutputOptions = {
-    declaration?: boolean
-    declarationSourceDir?: string
-    formats?: Array<"esm" | "cjs">
-    inputs: Record<string, string>
+    bundle?: boolean
+    cwd?: string
+    declarationPlugins?: RolldownPlugin[]
+    entry: string
+    entries?: Record<string, string>
+    formats?: NodeFormat[]
     minify?: boolean
+    native?: RolldownConfig
     outDir: string
     platform?: NodePlatform
     plugins?: RolldownPlugin[]
     sourcemap?: boolean
     target?: SyntaxTarget
 }
-
-type BundleOutputOptions = Omit<NodeOutputOptions, "inputs" | "plugins"> & {
-    cwd?: string
-    declaration?: boolean
-    entry: string
-    entries?: Record<string, string>
-    formats?: Array<"esm" | "cjs">
-    plugins?: RolldownPlugin[]
-}
-
-export type NodeOutputPlan = {
-    declarationAliases?: DeclarationAlias[]
-    declarationSourceDir?: string
-    input: InputOptions
-    outDir: string
-    output: OutputOptions[]
-    predictedOutput: string[]
-}
-
-type DeclarationAlias = {
-    destination: string
-    source: string
-}
-
-type WritableBundle = Pick<RolldownBuild, "write">
 
 const sourceExtensions = [".cts", ".mts", ".tsx", ".jsx", ".ts", ".js"]
 
@@ -60,255 +49,171 @@ const withoutExtension = (path: string): string => {
     return extension === undefined ? path : path.slice(0, -extension.length)
 }
 
-export const applicationInputs = async (rootDir: string): Promise<Record<string, string>> => {
-    const files = await glob("**/*.{ts,tsx,js,jsx,mts,cts}", {
-        absolute: true,
-        cwd: rootDir,
-        ignore: ["**/*.d.ts", "**/*.d.mts", "**/*.d.cts"]
-    })
-
-    return Object.fromEntries(files.map((file) => [withoutExtension(relative(rootDir, file)), file]))
-}
-
-export const sourceRoot = (entry: string, cwd = process.cwd()): string => dirname(resolve(cwd, entry))
-
-const commonInput = (
-    plugins: RolldownPlugin[],
-    platform: NodePlatform = "node",
-    target: SyntaxTarget = "node20"
-): Pick<InputOptions, "external" | "platform" | "plugins" | "transform"> => {
-    assertSyntaxTarget(target)
-    return {
-        plugins,
-        platform,
-        transform: { target },
-        external: (id) => id.startsWith("node:") || (!id.startsWith(".") && !id.startsWith("/"))
-    }
-}
-
-export const applicationOutputPlan = ({
-    declaration,
-    declarationSourceDir,
-    formats = ["esm"],
-    inputs,
-    minify,
-    outDir,
-    platform,
-    plugins = [],
-    sourcemap,
-    target
-}: NodeOutputOptions): NodeOutputPlan => {
-    if (Object.keys(inputs).length === 0) throw new Error("No application source files found")
-
-    const emitDeclarations = declaration === true
-    return {
-        ...(emitDeclarations && declarationSourceDir ? { declarationSourceDir } : {}),
-        input: {
-            input: inputs,
-            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], platform, target)
-        },
-        outDir,
-        output: formats.map((format) => ({
-            cleanDir: false,
-            dir: outDir,
-            entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
-            format: format === "esm" ? "es" : "cjs",
-            minify,
-            sourcemap
-        })),
-        predictedOutput: Object.keys(inputs).flatMap((file) => {
-            const output = formats.flatMap((format) => {
-                const path = resolve(outDir, `${file}.${format === "esm" ? "js" : "cjs"}`)
-                return sourcemap ? [path, `${path}.map`] : [path]
-            })
-            return emitDeclarations ? [...output, resolve(outDir, `${file}.d.ts`)] : output
-        })
-    }
-}
-
-export const writeApplicationOutput = async (options: NodeOutputOptions): Promise<string[]> => {
-    const plan = applicationOutputPlan(options)
-    const bundle = await rolldown(plan.input)
-    try {
-        return writeNodeOutput(plan, bundle)
-    } finally {
-        await bundle.close()
-    }
-}
-
-const entryName = (subpath: string): string => (subpath === "." ? "index" : subpath.slice(2))
+const entryName = (subpath: string): string => (subpath === "." ? "index" : subpath.replace(/^\.\//, ""))
 
 const defaultEntryName = (entry: string, cwd: string): string =>
     withoutExtension(relative(cwd, resolve(cwd, entry))).replace(/^src\//, "")
 
-export const bundledInputs = (cwd: string, entry: string, entries?: Record<string, string>): Record<string, string> => {
-    if (entries === undefined) {
-        return { [defaultEntryName(entry, cwd)]: resolve(cwd, entry) }
-    }
+export const resolvePublicInputs = (
+    cwd: string,
+    entry: string,
+    entries?: Record<string, string>
+): Record<string, string> => {
+    if (entries === undefined) return { [defaultEntryName(entry, cwd)]: resolve(cwd, entry) }
 
     const inputs: Record<string, string> = {}
+    const names = new Map<string, string>()
     const sources = new Map<string, string>()
     for (const [subpath, source] of Object.entries(entries)) {
+        const name = entryName(subpath)
+        const existingName = names.get(name)
+        if (existingName !== undefined) {
+            throw new Error(`Node entries ${existingName} and ${subpath} normalize to the same public name: ${name}`)
+        }
+        names.set(name, subpath)
+
         const resolved = resolve(cwd, source)
         const existing = sources.get(resolved)
         if (existing !== undefined) {
-            throw new Error(`Bundled entries ${existing} and ${subpath} resolve to the same source file`)
+            throw new Error(`Node entries ${existing} and ${subpath} resolve to the same source file`)
         }
         sources.set(resolved, subpath)
-        inputs[entryName(subpath)] = resolved
+        inputs[name] = resolved
     }
+    if (Object.keys(inputs).length === 0) throw new Error("Node build entries cannot be empty")
     return inputs
 }
 
-const bundledDeclarationAliases = (inputs: Record<string, string>, cwd: string, outDir: string): DeclarationAlias[] =>
-    Object.entries(inputs).map(([name, source]) => ({
-        destination: resolve(outDir, `${name}.d.ts`),
-        source: resolve(outDir, `${defaultEntryName(source, cwd)}.d.ts`)
-    }))
-
-const moveDeclarations = async (
-    sourceDeclarations: string,
-    outDir: string
-): Promise<{ source: string[]; destination: string[] }> => {
-    const files = await glob("**/*.d.{ts,mts,cts}", { absolute: true, cwd: sourceDeclarations })
-
-    const destination = files.map((file) => resolve(outDir, relative(sourceDeclarations, file)))
-    await Promise.all(destination.map((file) => mkdir(dirname(file), { recursive: true })))
-    await Promise.all(files.map((file) => rename(file, resolve(outDir, relative(sourceDeclarations, file)))))
-    const directories = new Set<string>()
-    for (const file of files) {
-        let directory = dirname(file)
-        while (true) {
-            directories.add(directory)
-            if (directory === sourceDeclarations) break
-            directory = dirname(directory)
+const commonSourceRoot = (inputs: Record<string, string>): string => {
+    const directories = Object.values(inputs).map(dirname)
+    let root = directories[0]!
+    for (const directory of directories.slice(1)) {
+        while (relative(root, directory).startsWith("../") || isAbsolute(relative(root, directory))) {
+            const parent = dirname(root)
+            if (parent === root) return root
+            root = parent
         }
     }
-    for (const directory of [...directories].sort((left, right) => right.length - left.length)) {
-        try {
-            await rmdir(directory)
-        } catch (error) {
-            if (!["ENOENT", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error
-        }
-    }
-    return { source: files, destination }
+    return root
 }
 
-export const bundledOutputPlan = ({
+const outputForFormat = (
+    format: NodeFormat,
+    native: OutputOptions | undefined,
+    owned: Pick<OutputOptions, "dir" | "minify" | "preserveModules" | "preserveModulesRoot" | "sourcemap">
+): OutputOptions => ({
+    entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
+    chunkFileNames: format === "esm" ? "[name]-[hash].js" : "[name]-[hash].cjs",
+    polyfillRequire: false,
+    ...native,
+    ...owned,
+    cleanDir: false,
+    format: format === "esm" ? "es" : "cjs"
+})
+
+export const nodeOutputPlan = ({
+    bundle = false,
     cwd = process.cwd(),
-    declaration,
+    declarationPlugins = [],
     entry,
     entries,
     formats = ["esm"],
     minify,
+    native,
     outDir,
-    platform,
+    platform = "node",
     plugins = [],
     sourcemap,
-    target
-}: BundleOutputOptions): NodeOutputPlan => {
-    const emitDeclarations = declaration === true
-    const inputs = bundledInputs(cwd, entry, entries)
-    return {
-        ...(emitDeclarations
-            ? {
-                  declarationAliases: bundledDeclarationAliases(inputs, cwd, outDir),
-                  declarationSourceDir: resolve(outDir, "src")
-              }
-            : {}),
-        input: {
-            input: inputs,
-            ...commonInput([...plugins, ...(emitDeclarations ? [isolatedDeclarationPlugin()] : [])], platform, target)
+    target = "node20"
+}: NodeOutputOptions): NodeOutputPlan => {
+    assertSyntaxTarget(target)
+    const inputs = resolvePublicInputs(cwd, entry, entries)
+    const preserveModulesRoot = commonSourceRoot(inputs)
+    const nativeInput = native?.input ?? {}
+    const nativePlugins = (nativeInput.plugins ?? []) as RolldownPlugin[]
+    const input: InputOptions = {
+        tsconfig: true,
+        ...nativeInput,
+        input: inputs,
+        platform,
+        transform: {
+            ...(typeof nativeInput.transform === "object" ? nativeInput.transform : {}),
+            target
         },
-        outDir,
-        output: formats.map((format) => ({
-            cleanDir: false,
-            dir: outDir,
-            entryFileNames: format === "esm" ? "[name].js" : "[name].cjs",
-            format: format === "esm" ? "es" : "cjs",
-            minify,
-            sourcemap
-        })),
-        predictedOutput: []
+        plugins: [projectExternalPlugin(cwd), ...nativePlugins, ...plugins, ...declarationPlugins]
     }
-}
 
-const applyDeclarationAliases = async (
-    aliases: DeclarationAlias[],
-    files: string[],
-    outDir: string
-): Promise<{ source: string[]; destination: string[] }> => {
-    const available = new Set(files)
-    const applicable = aliases.filter(({ source, destination }) => source !== destination && available.has(source))
-    await Promise.all(applicable.map(({ destination }) => mkdir(dirname(destination), { recursive: true })))
-    if (applicable.length > 0) {
-        const stagingDirectory = await mkdtemp(resolve(outDir, ".webanvil-declaration-aliases-"))
-        const staged = applicable.map((alias, index) => ({
-            ...alias,
-            staged: resolve(stagingDirectory, `${index}.d.ts`)
-        }))
-        try {
-            await Promise.all(staged.map(({ source, staged }) => rename(source, staged)))
-            await Promise.all(staged.map(({ destination, staged }) => rename(staged, destination)))
-        } catch (error) {
-            await rm(stagingDirectory, { force: true, recursive: true })
-            throw error
-        }
-        await rmdir(stagingDirectory)
-    }
-    const directories = new Set<string>()
-    for (const { source } of applicable) {
-        let directory = dirname(source)
-        while (directory !== outDir) {
-            directories.add(directory)
-            directory = dirname(directory)
-        }
-    }
-    for (const directory of [...directories].sort((left, right) => right.length - left.length)) {
-        try {
-            await rmdir(directory)
-        } catch (error) {
-            if (!["ENOENT", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error
-        }
-    }
     return {
-        destination: applicable.map(({ destination }) => destination),
-        source: applicable.map(({ source }) => source)
+        authoredInputs: Object.values(inputs),
+        input,
+        outDir,
+        output: formats.map((format) =>
+            outputForFormat(format, native?.output?.[format], {
+                dir: outDir,
+                minify,
+                preserveModules: !bundle,
+                ...(!bundle ? { preserveModulesRoot } : {}),
+                sourcemap
+            })
+        )
     }
 }
 
-export const normalizeNodeOutput = async (plan: NodeOutputPlan, output: string[]): Promise<string[]> => {
-    const moved = plan.declarationSourceDir
-        ? await moveDeclarations(plan.declarationSourceDir, plan.outDir)
-        : { source: [], destination: [] }
-    const aliased = await applyDeclarationAliases(
-        plan.declarationAliases ?? [],
-        [...output, ...moved.destination],
-        plan.outDir
+export const authoredNodeSources = (plan: NodeOutputPlan, outputs: RolldownOutput[]): string[] => {
+    const sources = new Set(plan.authoredInputs)
+    for (const output of outputs) {
+        for (const file of output.output) {
+            if (file.type !== "chunk") continue
+            for (const source of Object.keys(file.modules)) {
+                if (isAbsolute(source)) sources.add(source)
+            }
+            if (file.facadeModuleId !== null && isAbsolute(file.facadeModuleId)) {
+                sources.add(file.facadeModuleId)
+            }
+        }
+    }
+    return [...sources]
+}
+
+const sourceBytes = (file: OutputAsset | OutputChunk): string | Uint8Array =>
+    file.type === "chunk" ? file.code : file.source
+
+const removeEmptyRolldownRuntime = (files: GeneratedNodeFile[]): GeneratedNodeFile[] => {
+    const emptyRuntime = files.filter(
+        ({ fileName, source }) =>
+            typeof source === "string" &&
+            /(?:^|\/)(?:_rolldown\/runtime|rolldown-runtime-[^/]+)\.js$/.test(fileName) &&
+            source.replaceAll(/\s/g, "") === 'import"node:module";export{};'
     )
-    const replaced = new Set([...moved.source, ...aliased.source])
-    return [
-        ...output.filter((file) => !replaced.has(file)),
-        ...moved.destination.filter((file) => !replaced.has(file)),
-        ...aliased.destination
-    ]
+    if (emptyRuntime.length === 0) return files
+
+    const removed = new Set(emptyRuntime.map(({ fileName }) => fileName))
+    return files
+        .filter(({ fileName }) => !removed.has(fileName))
+        .map((file) => {
+            if (typeof file.source !== "string") return file
+            let source = file.source
+            for (const runtime of removed) {
+                const path = relative(dirname(file.fileName), runtime)
+                const specifier = path.startsWith(".") ? path : `./${path}`
+                source = source.replace(`import "${specifier}";`, "").replace(`import"${specifier}";`, "")
+            }
+            return { ...file, source }
+        })
 }
 
-export const writeNodeOutput = async (plan: NodeOutputPlan, bundle: WritableBundle): Promise<string[]> => {
-    const output: string[] = []
-    for (const options of plan.output) {
-        const result = await bundle.write(options)
-        output.push(...result.output.map((file) => resolve(plan.outDir, file.fileName)))
+export const generatedNodeFiles = (outputs: RolldownOutput[]): GeneratedNodeFile[] => {
+    const generated = new Map<string, GeneratedNodeFile>()
+    for (const output of outputs) {
+        for (const file of output.output) {
+            const fileName = file.fileName
+            const source = sourceBytes(file)
+            const existing = generated.get(fileName)
+            if (existing !== undefined) {
+                throw new Error(`Rolldown outputs collide at ${fileName}`)
+            }
+            generated.set(fileName, { fileName, source })
+        }
     }
-    return normalizeNodeOutput(plan, output)
-}
-
-export const writeBundledOutput = async (options: BundleOutputOptions): Promise<string[]> => {
-    const plan = bundledOutputPlan(options)
-    const bundle = await rolldown(plan.input)
-    try {
-        return writeNodeOutput(plan, bundle)
-    } finally {
-        await bundle.close()
-    }
+    return removeEmptyRolldownRuntime([...generated.values()])
 }

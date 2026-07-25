@@ -52,14 +52,20 @@ import { defineConfig } from "webanvil"
 
 export default defineConfig({
     build: {
-        bundle: true,
         entries: { ".": "src/index.ts" },
         outDir: "dist",
         platform: "node",
         target: "es2022",
         copy: [{ from: "assets/**", to: "assets" }]
     },
+    rolldown: {
+        output: {
+            esm: { entryFileNames: "[name].mjs" },
+            cjs: { entryFileNames: "[name].js" }
+        }
+    },
     test: {
+        globals: true,
         environment: "node",
         include: ["test/**/*.test.ts"]
     }
@@ -86,7 +92,11 @@ export default defineConfig({
 Plain Vite plugins remain valid for web builds. Node builds require
 `definePlugin()` because they need a Rolldown adapter.
 
-`defineConfig` accepts either an object or a zero-argument function returning an object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in defaults, then validates the root, `build`, `format`, `lint`, and `test` objects. Defined CLI values override config values.
+`defineConfig` accepts either an object or a zero-argument function returning an
+object. `loadConfig()` uses c12 to find `webanvil.config.*`, merges built-in
+defaults, then validates WebAnvil-owned structure. The `vite`, `test`,
+`rolldown`, `format`, and `lint` blocks retain the owning package's types and are
+opaque to Zod. Defined CLI values override config values.
 
 ```ts
 export default defineConfig({
@@ -95,19 +105,66 @@ export default defineConfig({
 })
 ```
 
-The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectively. WebAnvil passes them to the underlying tool, so `.oxfmtrc.json` and `.oxlintrc.json` are not needed. When present, `.oxfmtrc.json`, `.oxlintrc.json`, `vite.config.*`, and `vitest.config.*` take precedence over their WebAnvil equivalents.
+The `vite`, `test`, `rolldown`, `format`, and `lint` blocks accept native
+configuration from Vite, Vitest, Rolldown, Oxfmt, and Oxlint respectively.
+`build.declaration` accepts native `rolldown-plugin-dts` options. When present,
+`.oxfmtrc.json`, `.oxlintrc.json`, `vite.config.*`, and `vitest.config.*` take
+precedence over their WebAnvil equivalents; explicit CLI values still win for
+that run.
+
+## Tool selection
+
+- Vite, Vitest, Rolldown, Oxlint, Oxfmt, TypeScript, and TypeScript Native are
+  selected from a compatible direct project declaration first, then a
+  compatible declaration from a workspace containing the project. An
+  undeclared or merely hoisted tool does not become the selected project tool;
+  WebAnvil uses its exact fallback.
+- Preflight every engine a command can dispatch before loading
+  `webanvil.config.*` or evaluating its plugins. A declared but missing,
+  misidentified, or incompatible command engine fails first. Select the
+  TypeScript declaration compiler after configuration enables declarations but
+  before starting Rolldown.
+- Announce the selected package, version, and source once on first use:
+  `<package> <version> (<project|webanvil>)`.
+- Package managers own dependency installation, lockfiles, and installed state.
+  WebAnvil must never install, update, or rewrite package-manager state.
 
 ## CLI and config policy
 
 - Persistent behavior options, such as `mode`, `outDir`, static `copy` mappings, test environment, platform, target, formats, sourcemaps, minification, and plugins, belong in config and may be overridden by explicit CLI options. Test includes remain config-only, matching Vitest.
-- `wa build` is the one build command. Web mode uses Vite; unbundled Node mode mirrors the source tree beneath `dirname(entry)` in the selected ESM/CJS formats, with optional declarations. `--bundle` switches Node output to one explicit `entry` or public `build.entries` mappings.
+- `wa build` is the one build command. Web mode uses Vite. Node `entry` and
+  `entries` are public roots in both modes: unbundled builds use Rolldown
+  `preserveModules` for only the reachable graph, while `--bundle` bundles the
+  same roots. Never restore source-tree globbing or mirroring.
 - Validate mode-specific fields and plugins after explicit CLI overrides.
 - An explicit positional entry overrides configured `entry` and `entries`.
+- Resolve TypeScript paths, native Rolldown aliases/plugins, export conditions,
+  and explicit native external settings before WebAnvil's package
+  externalization. Keep local results internal, built-ins and installed package
+  results external with their original specifier, and reject unresolved
+  imports.
 - Node `platform` defaults to `node`; Node syntax `target` defaults to `node20`.
   Web rejects platform, has no WebAnvil target default, and web dev ignores it.
 - Node builds fill omitted `formats` and `declaration` settings from the nearest `package.json`. `import`, `require`, and `types` export conditions map to ESM, CommonJS, and declarations; a top-level `types` field also enables declarations. Precedence is CLI, WebAnvil config, package metadata, then built-in defaults. Package metadata does not affect web builds.
 - Static copy mappings use project-relative `{ from, to }` pairs, where `from` is a file path or glob and `to` is an output directory. Preserve paths beneath the glob's static base, reject destinations that resolve to a generated, duplicate, or untracked output file, and record copied files for `wa clean`. Node watch mode re-expands mappings on every rebuild, watches currently matched files, and picks up newly matching files on the next rebuild.
-- `wa build` records emitted and statically copied paths in `.webanvil/buildinfo.json`; `wa clean` removes only those paths and leaves the state file with an empty output list.
+- Native per-format Rolldown output naming accepts strings and callbacks.
+  WebAnvil owns output directories, format, cleanup, and the preserve-modules
+  strategy. Generate every format first, reject generated/copy collisions, then
+  commit atomically. Failed builds and watch cycles retain or restore the last
+  successful output and build-info.
+- `wa build` records actual emitted and statically copied paths in
+  `.webanvil/buildinfo.json`; `wa clean` removes only those paths, including
+  customized names and maps, and leaves the state file with an empty output
+  list.
+- `rolldown-plugin-dts` owns declaration paths and imports. Its default
+  generator is `tsc`; `oxc` and `tsgo` are explicit alternatives. Use a directly
+  declared project/workspace TypeScript or the exact fallback, honor directly
+  declared `ts-patch` plus TypeScript emit transforms only when they resolve to
+  the same compiler, and require `tsc` for transforms. One process cannot
+  switch the compiler identity after the plugin initializes it.
+- ESM-only Node builds attach declarations to that graph. CJS-only and
+  dual-format builds run one declaration-only ESM graph. Do not relocate or
+  rewrite declaration files after Rolldown.
 - `wa preview` serves the resolved web build output through Vite. `--host`, `--port`, `--out-dir`, and `--open` are run-specific CLI overrides.
 - `wa check` runs formatting, linting, and type checking sequentially and stops on the first failure. It is read-only by default; `--fix` writes formatting changes and applies safe lint fixes. It never runs tests.
 - `wa test` runs once by default; `--watch`, `--coverage`, and `--ui` are CLI-only Vitest modes. `--ui-port` selects a strict loopback port and requires `--ui`. Keep persistent advanced testing configuration in `vitest.config.*`.
@@ -122,7 +179,11 @@ The `format` and `lint` blocks accept Oxfmt and Oxlint configuration respectivel
 
 ## Build modes
 
-`web` mode runs Vite and uses an HTML entry. Unbundled `node` mode runs Rolldown and emits each JavaScript or TypeScript source module beneath `dirname(entry)` in the selected ESM/CJS formats, with optional mirrored declarations. `--bundle` switches Node mode to one explicit entry or public entry mappings, and declarations follow those public names.
+`web` mode runs Vite and uses an HTML entry. Unbundled `node` mode runs
+Rolldown with `preserveModules` and emits the graph reachable from one explicit
+entry or public entry mappings. Bundled Node mode uses those same public roots.
+Unreachable source, test, setup, example, and fixture files are not output.
+Declarations follow public names and the final Rolldown graph.
 
 ## Development modes
 
@@ -132,7 +193,11 @@ Future config resolution will merge project config, workspace config, and built-
 
 ## Test configuration
 
-`wa test` passes `test.environment` and `test.include` to Vitest. Its positional filters and `--environment` option mirror Vitest; the CLI environment overrides config. `--watch`, `--coverage`, and `--ui` expose run-specific Vitest modes. Use `vitest.config.*` for persistent advanced Vitest configuration.
+`wa test` passes the native `test` block to Vitest, including options such as
+`globals`, `setupFiles`, `env`, `environment`, and `include`. Its positional
+filters and `--environment` option mirror Vitest; CLI modes and environment
+override config. `--watch`, `--coverage`, and `--ui` expose run-specific Vitest
+modes. When present, use `vitest.config.*` instead of the WebAnvil native block.
 
 ## Project structure
 
@@ -152,5 +217,7 @@ src/
 
 - `defineConfig` accepts object and zero-argument function configs.
 - `loadConfig()` loads `webanvil.config.*` through c12.
+- Command entrypoints preflight every engine they can dispatch before
+  `loadConfig()`.
 - `defineCommand` and `defineOption` from cmdore define commands and shared options.
 - `logger` is the shared tagged consola instance.

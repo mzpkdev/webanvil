@@ -1,7 +1,7 @@
-import { access, readFile } from "node:fs/promises"
+import { access, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 
-import { findTypeExports, hasCJSSyntax, hasESMSyntax } from "mlly"
+import { findExportNames, hasCJSSyntax, hasESMSyntax } from "mlly"
 import { beforeAll, describe as context, describe, expect, it } from "vitest"
 
 import { project, npm, webanvil } from "./utils"
@@ -23,6 +23,8 @@ describe("npm-lib", () => {
 
         it("infers ESM, CommonJS, and declaration outputs from package.json", async () => {
             await webanvil(example, "build")
+            await writeFile(join(example, "index.d.ts"), "stale tracked declaration\n")
+            await webanvil(example, "build")
             const output = example
 
             await expect(access(join(output, "index.js"))).resolves.toBeUndefined()
@@ -40,7 +42,7 @@ describe("npm-lib", () => {
             expect(hasESMSyntax(esm)).toBe(true)
             expect(hasCJSSyntax(esm)).toBe(false)
             expect(hasCJSSyntax(cjs)).toBe(true)
-            expect(findTypeExports(declaration).flatMap((entry) => entry.names)).toContain("greet")
+            expect(findExportNames(declaration)).toContain("greet")
             expect(esm).toContain("Hello from a plugin")
         }, 60_000)
 

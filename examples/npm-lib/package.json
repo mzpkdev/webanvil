@@ -24,7 +24,7 @@
         "test": "wa test"
     },
     "devDependencies": {
-        "typescript": "^7.0.2",
+        "typescript": "6.0.3",
         "unplugin": "^3.3.0",
         "vitest": "^4.1.10",
         "webanvil": "file:../.."

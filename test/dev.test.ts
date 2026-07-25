@@ -2,11 +2,13 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
+import { execute } from "cmdore"
 import { afterEach, describe, describe as context, expect, it } from "vitest"
 import type { ViteDevServer } from "vite"
 
-import { dev } from "../src/commands/dev"
+import devCommand, { dev } from "../src/commands/dev"
 import { readBuildInfo, writeBuildInfo } from "../src/core/build-info"
+import { createNodeBuildPlan, nodeWatchLifecycle } from "../src/core/node-build"
 
 const directories: string[] = []
 const initialDirectory = process.cwd()
@@ -62,6 +64,117 @@ afterEach(async () => {
 
 describe("dev", () => {
     context("with a Node build", () => {
+        it("lets --no-bundle override configured bundling", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "./feature"\n')
+            await writeFile(join(directory, "src", "feature.ts"), 'export const value = "preserved"\n')
+            await writeFile(
+                join(directory, "webanvil.config.ts"),
+                'export default { build: { mode: "node", bundle: true } }'
+            )
+            process.chdir(directory)
+
+            const watching = execute([devCommand], {
+                argv: ["dev", "--no-bundle"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+
+            try {
+                await waitForFile(join(directory, "dist", "feature.js"))
+                await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("./feature.js")
+            } finally {
+                process.emit("SIGINT")
+                await watching
+            }
+        })
+
+        it("discards a declaration cycle superseded before commit", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await mkdir(join(directory, "dist"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), "export const value = true\n")
+            await writeFile(join(directory, "dist", "previous.cjs"), "previous\n")
+            await writeBuildInfo(["dist/previous.cjs"], directory)
+            process.chdir(directory)
+
+            const plan = await createNodeBuildPlan("src/index.ts", "dist", { declaration: true, formats: ["cjs"] }, [])
+            let declarationCall = 0
+            let releaseFirstDeclaration = (): void => {}
+            let markFirstDeclarationStarted = (): void => {}
+            const firstDeclarationStarted = new Promise<void>((resolve) => {
+                markFirstDeclarationStarted = resolve
+            })
+            const firstDeclarationPaused = new Promise<void>((resolve) => {
+                releaseFirstDeclaration = resolve
+            })
+            const lifecycle = nodeWatchLifecycle(
+                plan,
+                async () =>
+                    ({
+                        close: async () => {},
+                        generate: async () => {
+                            declarationCall += 1
+                            const cycle = declarationCall
+                            if (cycle === 1) {
+                                markFirstDeclarationStarted()
+                                await firstDeclarationPaused
+                            }
+                            return {
+                                output: [
+                                    {
+                                        type: "asset",
+                                        fileName: "index.d.ts",
+                                        source: `declaration ${cycle}\n`
+                                    }
+                                ]
+                            }
+                        }
+                    }) as never
+            )
+            const buildStart = lifecycle.plugin.buildStart
+            const generateBundle = lifecycle.plugin.generateBundle
+            if (typeof buildStart !== "function" || typeof generateBundle !== "function") {
+                throw new Error("Expected function watch lifecycle hooks")
+            }
+            const startCycle = async (source: string): Promise<void> => {
+                lifecycle.abort()
+                await buildStart.call({ addWatchFile: () => {} } as never, {} as never)
+                generateBundle.call(
+                    {} as never,
+                    {} as never,
+                    {
+                        "index.cjs": {
+                            type: "asset",
+                            fileName: "index.cjs",
+                            source
+                        }
+                    } as never,
+                    false
+                )
+            }
+
+            await startCycle("first cycle\n")
+            const first = lifecycle.complete()
+            await firstDeclarationStarted
+            await startCycle("second cycle\n")
+            const second = lifecycle.complete()
+            releaseFirstDeclaration()
+
+            await expect(first).resolves.toBeUndefined()
+            await expect(second).resolves.toEqual([
+                join(directory, "dist", "index.cjs"),
+                join(directory, "dist", "index.d.ts")
+            ])
+            await expect(readFile(join(directory, "dist", "index.cjs"), "utf8")).resolves.toBe("second cycle\n")
+            await expect(readFile(join(directory, "dist", "index.d.ts"), "utf8")).resolves.toBe("declaration 2\n")
+            await expect(access(join(directory, "dist", "previous.cjs"))).rejects.toThrow()
+            await expect(readBuildInfo(directory)).resolves.toEqual({
+                output: ["dist/index.cjs", "dist/index.d.ts"]
+            })
+        })
+
         it("rejects web-only host and port options", async () => {
             await expect(dev("node", "src/index.ts", "dist", "127.0.0.1", 3000)).rejects.toThrow(
                 "--host and --port are only available in web development mode"
@@ -253,6 +366,42 @@ describe("dev", () => {
                         !(await exists(join(directory, "dist", "assets", "message.txt"))) &&
                         !(await readBuildInfo(directory)).output.includes("dist/assets/message.txt")
                 )
+            } finally {
+                stop()
+                await watching
+            }
+        })
+
+        it("adds and removes graph files while preserving output through a failed rebuild", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await writeFile(join(directory, "src", "index.ts"), 'export { value } from "./feature"\n')
+            await writeFile(join(directory, "src", "feature.ts"), 'export const value = "first"\n')
+            process.chdir(directory)
+
+            let stop = (): void => {}
+            const terminated = new Promise<void>((resolve) => {
+                stop = resolve
+            })
+            const watching = dev.node("src/index.ts", "dist", [], () => terminated)
+
+            try {
+                await waitForFile(join(directory, "dist", "feature.js"))
+                await writeFile(join(directory, "src", "index.ts"), 'export const value = "second"\n')
+                await waitFor(
+                    "a removed graph output",
+                    async () => !(await exists(join(directory, "dist", "feature.js")))
+                )
+                const successful = await readFile(join(directory, "dist", "index.js"), "utf8")
+
+                await writeFile(join(directory, "src", "index.ts"), 'export { value } from "missing-watch-package"\n')
+                await new Promise((resolve) => setTimeout(resolve, 150))
+                await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toBe(successful)
+
+                await writeFile(join(directory, "src", "added.ts"), 'export const value = "recovered"\n')
+                await writeFile(join(directory, "src", "index.ts"), 'export { value } from "./added"\n')
+                await waitForFile(join(directory, "dist", "added.js"))
+                await expect(readFile(join(directory, "dist", "index.js"), "utf8")).resolves.toContain("./added.js")
             } finally {
                 stop()
                 await watching
