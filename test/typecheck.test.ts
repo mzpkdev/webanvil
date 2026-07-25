@@ -46,9 +46,33 @@ describe("typecheck", () => {
         await expect(typecheck([])).rejects.toThrow("tsgo exited with code 1")
     })
 
-    it("type checks explicit paths when a project tsconfig is present", async () => {
+    it("checks every referenced project from a solution-style root", async () => {
         const directory = await createDirectory()
-        await writeFile(join(directory, "tsconfig.json"), '{ "compilerOptions": { "strict": true } }')
+        await writeFile(
+            join(directory, "tsconfig.json"),
+            '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }'
+        )
+        await writeFile(
+            join(directory, "tsconfig.app.json"),
+            '{ "compilerOptions": { "composite": true, "strict": true }, "files": ["app.ts"] }'
+        )
+        await writeFile(join(directory, "app.ts"), "const greeting: string = 1\n")
+        process.chdir(directory)
+
+        await expect(typecheck([])).rejects.toThrow("tsgo exited with code 1")
+    })
+
+    it("type checks explicit paths without checking referenced projects", async () => {
+        const directory = await createDirectory()
+        await writeFile(
+            join(directory, "tsconfig.json"),
+            '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }'
+        )
+        await writeFile(
+            join(directory, "tsconfig.app.json"),
+            '{ "compilerOptions": { "composite": true, "strict": true }, "files": ["app.ts"] }'
+        )
+        await writeFile(join(directory, "app.ts"), "const greeting: string = 1\n")
         await writeFile(join(directory, "file.ts"), 'const greeting: string = "hello"\n')
         process.chdir(directory)
 

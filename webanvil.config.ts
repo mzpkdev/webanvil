@@ -3,7 +3,7 @@ export default {
         arrowParens: "always",
         bracketSameLine: false,
         bracketSpacing: true,
-        ignorePatterns: ["**/node_modules", "**/.runtime", "**/experiments", "bun.lock"],
+        ignorePatterns: ["**/node_modules", "**/.runtime", "**/experiments", "**/.preemdeck/**", "bun.lock"],
         jsxSingleQuote: false,
         printWidth: 120,
         quoteProps: "as-needed",

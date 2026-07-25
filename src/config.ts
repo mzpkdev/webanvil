@@ -2,10 +2,14 @@ import { loadConfig as loadC12Config } from "c12"
 import { defu } from "defu"
 import type { OxfmtConfig } from "oxfmt"
 import type { OxlintConfig } from "oxlint"
+import type { InputOptions, OutputOptions } from "rolldown"
+import type { UserConfig as ViteUserConfig } from "vite"
+import type { TestUserConfig } from "vitest/config"
 import { z } from "zod"
 
 import { NODE_PLUGIN_ERROR } from "./plugin-validation"
 import { isUnpluginAdapter, isWebAnvilPlugin, type WebAnvilPlugin } from "./plugins"
+import type { DeclarationConfig } from "./core/declaration"
 
 export const copyMappingSchema = z.strictObject({
     from: z.string().min(1),
@@ -40,13 +44,19 @@ export const syntaxTargetSchema = z
         }
     })
 
+const nativeConfigSchema = <T extends object>() =>
+    z.custom<T>(
+        (value) => typeof value === "object" && value !== null && !Array.isArray(value),
+        "Expected a configuration object"
+    )
+
 export const buildConfigSchema = z.strictObject({
     bundle: z.boolean().optional(),
     mode: z.enum(["web", "node"]).optional(),
     entry: z.string().min(1).optional(),
     entries: z.record(z.string().min(1), z.string().min(1)).optional(),
     outDir: z.string().min(1).optional(),
-    declaration: z.boolean().optional(),
+    declaration: z.union([z.boolean(), nativeConfigSchema<DeclarationConfig>()]).optional(),
     sourcemap: z.boolean().optional(),
     minify: z.boolean().optional(),
     copy: z.array(copyMappingSchema).optional(),
@@ -58,18 +68,25 @@ export const buildConfigSchema = z.strictObject({
     target: syntaxTargetSchema.optional()
 })
 
-export const testConfigSchema = z.strictObject({
-    environment: z.string().min(1).optional(),
-    include: z.array(z.string().min(1)).min(1).optional()
-})
+export type RolldownConfig = {
+    input?: Omit<InputOptions, "cwd" | "input">
+    output?: Partial<
+        Record<
+            "esm" | "cjs",
+            Omit<OutputOptions, "cleanDir" | "dir" | "format" | "preserveModules" | "preserveModulesRoot">
+        >
+    >
+}
 
-const toolConfigSchema = z.custom<Record<string, unknown>>(
-    (value) => typeof value === "object" && value !== null && !Array.isArray(value),
-    "Expected a configuration object"
-)
+export type LintConfig = Omit<OxlintConfig, "extends"> & {
+    extends?: Array<OxlintConfig | string>
+}
 
-export const formatConfigSchema = toolConfigSchema
-export const lintConfigSchema = toolConfigSchema
+export const formatConfigSchema = nativeConfigSchema<OxfmtConfig>()
+export const lintConfigSchema = nativeConfigSchema<LintConfig>()
+export const rolldownConfigSchema = nativeConfigSchema<RolldownConfig>()
+export const testConfigSchema = nativeConfigSchema<TestUserConfig>()
+export const viteConfigSchema = nativeConfigSchema<ViteUserConfig>()
 
 const pluginSchema = z.custom<WebAnvilPlugin>(
     isWebAnvilPlugin,
@@ -80,18 +97,20 @@ export const userConfigSchema = z.strictObject({
     build: buildConfigSchema.optional(),
     format: formatConfigSchema.optional(),
     lint: lintConfigSchema.optional(),
+    rolldown: rolldownConfigSchema.optional(),
     test: testConfigSchema.optional(),
+    vite: viteConfigSchema.optional(),
     plugins: z.array(pluginSchema).optional()
 })
 
 export const effectiveUserConfigSchema = userConfigSchema.superRefine((config, context) => {
     const build = config.build ?? {}
 
-    if (build.entries !== undefined && (build.mode !== "node" || build.bundle !== true)) {
+    if (build.entries !== undefined && build.mode !== "node") {
         context.addIssue({
             code: "custom",
             path: ["build", "entries"],
-            message: "build.entries requires bundled Node mode"
+            message: "build.entries is only available in Node mode"
         })
     }
 
@@ -119,8 +138,8 @@ export const effectiveUserConfigSchema = userConfigSchema.superRefine((config, c
 export type BuildConfig = z.infer<typeof buildConfigSchema>
 export type CopyMapping = z.infer<typeof copyMappingSchema>
 export type FormatConfig = OxfmtConfig
-export type LintConfig = OxlintConfig
-export type TestConfig = z.infer<typeof testConfigSchema>
+export type TestConfig = TestUserConfig
+export type ViteConfig = ViteUserConfig
 export type UserConfig = z.infer<typeof userConfigSchema>
 export type UserConfigFactory = () => UserConfig | Promise<UserConfig>
 export type ConfigExport = UserConfig | UserConfigFactory

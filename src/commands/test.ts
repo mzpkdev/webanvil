@@ -1,18 +1,23 @@
 import { defineCommand } from "cmdore"
-import { startVitest } from "vitest/node"
 
 import { filters } from "../arguments"
 import { hasToolConfig } from "../config-files"
-import { withConfig } from "../config"
+import { type TestConfig, withConfig } from "../config"
 import { untilTerminated } from "../core/until-terminated"
+import { useTool, useToolApi } from "../core/use-tool"
 import { coverage, environment, ui, uiPort, watch } from "../options"
 import { logger } from "../tools"
 
 export const test = async (
     filters: string[],
-    environment: string,
-    include?: string[],
-    options: { coverage?: boolean; ui?: boolean; uiPort?: number; watch?: boolean } = {},
+    config: TestConfig = {},
+    options: {
+        coverage?: boolean
+        environment?: TestConfig["environment"]
+        ui?: boolean
+        uiPort?: number
+        watch?: boolean
+    } = {},
     waitForTermination: () => Promise<void> = untilTerminated
 ): Promise<void> => {
     if (options.uiPort !== undefined && options.ui !== true) throw new Error("--ui-port requires --ui")
@@ -20,14 +25,22 @@ export const test = async (
     logger.start("Running tests")
     const hasVitestConfig = await hasToolConfig("vitest")
     const persistent = options.watch === true || options.ui === true
+    const { startVitest } = await useToolApi<typeof import("vitest/node")>("vitest", "node")
+    const nativeConfig = hasVitestConfig ? {} : config
+    const nativeCoverage =
+        typeof nativeConfig.coverage === "object" && nativeConfig.coverage !== null ? nativeConfig.coverage : {}
+    const nativeApi = typeof nativeConfig.api === "object" && nativeConfig.api !== null ? nativeConfig.api : {}
     const vitest = await startVitest("test", filters, {
+        ...nativeConfig,
         passWithNoTests: true,
         run: !persistent,
         watch: persistent,
-        ...(options.coverage ? { coverage: { enabled: true, provider: "v8" } } : {}),
+        ...(options.environment === undefined ? {} : { environment: options.environment }),
+        ...(options.coverage ? { coverage: { ...nativeCoverage, enabled: true, provider: "v8" } } : {}),
         ...(options.ui ? { ui: true } : {}),
-        ...(options.uiPort === undefined ? {} : { api: { host: "127.0.0.1", port: options.uiPort, strictPort: true } }),
-        ...(hasVitestConfig ? {} : { environment, ...(include === undefined ? {} : { include }) })
+        ...(options.uiPort === undefined
+            ? {}
+            : { api: { ...nativeApi, host: "127.0.0.1", port: options.uiPort, strictPort: true } })
     })
     if (persistent) {
         try {
@@ -48,13 +61,35 @@ export const test = async (
     logger.success("Tests passed")
 }
 
+const runTest = withConfig<
+    TestConfig,
+    {
+        coverage?: boolean
+        environment?: string
+        filters: string[]
+        ui?: boolean
+        "ui-port"?: number
+        watch?: boolean
+    },
+    void
+>(
+    (config) => config.test,
+    ({ filters, environment, coverage, ui, "ui-port": uiPort, watch }, config, _resolvedConfig, explicitArguments) =>
+        test(filters, config, {
+            coverage,
+            environment: explicitArguments.environment === undefined ? undefined : environment,
+            ui,
+            uiPort,
+            watch
+        })
+)
+
 export default defineCommand({
     name: "test",
     arguments: [filters],
     options: [environment, watch, coverage, ui, uiPort],
-    run: withConfig(
-        (config) => config.test,
-        ({ filters, environment, coverage, ui, "ui-port": uiPort, watch }, config) =>
-            test(filters, environment, config.include, { coverage, ui, uiPort, watch })
-    )
+    run: async (arguments_) => {
+        await useTool("vitest")
+        return runTest(arguments_)
+    }
 })

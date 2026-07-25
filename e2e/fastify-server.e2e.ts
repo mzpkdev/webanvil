@@ -3,13 +3,17 @@ import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import { hasCJSSyntax, hasESMSyntax } from "mlly"
-import { beforeAll, describe as context, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe as context, describe, expect, it } from "vitest"
 
 import { project, npm, waitFor, waitForFile, webanvil } from "./utils"
 
 const example = project("fastify-server")
 
 describe("fastify-server", () => {
+    afterAll(async () => {
+        await rm(join(example, "cli-dist"), { force: true, recursive: true })
+    })
+
     context("when WebAnvil and the example dependencies are installed", () => {
         beforeAll(async () => {
             await npm.install(example)

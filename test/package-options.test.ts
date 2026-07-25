@@ -101,6 +101,16 @@ describe("resolvePackageOutputOptions", () => {
         )
     })
 
+    it("preserves an explicit declaration options object ahead of package inference", async () => {
+        const directory = await createDirectory()
+        const declaration = { generator: "oxc" as const }
+        await writePackage(directory, { types: "./dist/index.d.ts" })
+
+        await expect(resolvePackageOutputOptions({ declaration }, directory)).resolves.toEqual({
+            declaration
+        })
+    })
+
     it("keeps current defaults when no package exists", async () => {
         const directory = await createDirectory()
 

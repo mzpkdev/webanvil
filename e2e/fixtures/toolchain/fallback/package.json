@@ -1,0 +1,8 @@
+{
+    "name": "webanvil-e2e-toolchain-fallback",
+    "private": true,
+    "type": "module",
+    "devDependencies": {
+        "webanvil": "file:../../../.."
+    }
+}

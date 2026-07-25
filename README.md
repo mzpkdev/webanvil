@@ -25,6 +25,9 @@ Table of contents
     - [A web app](#a-web-app)
     - [A Node project](#a-node-project)
 - [Configuration](#configuration)
+    - [Tool selection](#tool-selection)
+    - [Native tool configuration](#native-tool-configuration)
+    - [Node declarations](#node-declarations)
     - [Command-line options](#command-line-options)
 - [Migration](#migration)
 - [Command reference](#command-reference)
@@ -73,6 +76,12 @@ Install WebAnvil as a development dependency:
 ```sh
 npm install --save-dev webanvil
 ```
+
+Your package manager remains responsible for dependencies, the lockfile, and
+the installed tree. WebAnvil never installs or updates tools. When a supported
+tool is declared directly by the active project, or by a workspace that contains
+it, WebAnvil uses that installed version. Otherwise it uses the exact version
+shipped with WebAnvil.
 
 Add the scripts you want to `package.json`:
 
@@ -144,7 +153,9 @@ export default defineConfig({
 
 ### A Node project
 
-Node mode is the default. Choose a source-tree anchor, or enable bundling for explicit public entries:
+Node mode is the default. Declare the package's public roots with `entry` or
+`entries`, then choose whether Rolldown should preserve or bundle the reachable
+module graph:
 
 ```ts
 import { defineConfig } from "webanvil"
@@ -167,10 +178,18 @@ export default defineConfig({
 })
 ```
 
-Without `bundle`, Node builds mirror every source module beneath
-`dirname(entry)`. With `bundle`, use one `entry` or public `entries`; an
-explicit positional entry overrides configured entries. Bare imports remain
-external in both. Declarations follow the selected output names.
+Without `bundle`, Rolldown uses `preserveModules` and emits only modules
+reachable from the public roots. It does not mirror the source tree, so tests,
+examples, setup files, and other unreachable modules are omitted. With
+`bundle`, those same roots become bundle entries. An explicit positional entry
+overrides configured `entries`.
+
+TypeScript paths, native Rolldown aliases and resolver plugins, and package
+export conditions resolve before WebAnvil decides whether an import is a
+dependency. Project-local results stay in the graph. Node built-ins and
+installed packages remain external with their original portable specifiers,
+while unresolved imports fail the build.
+
 `platform` (`node`, `browser`, or `neutral`) is Node-only. `target` is one
 syntax target or an array; CLI lists are comma-separated. Node defaults are
 `platform: "node"` and `target: "node20"`. Web production forwards only an
@@ -187,6 +206,11 @@ affect web builds.
 `wa build`: bundle mode, entries, formats, declarations, source maps,
 minification, platform, target, plugins, static copies, stale-output cleanup, and
 build metadata all stay in sync. It does not run or restart the server process.
+
+Node output is transactional. WebAnvil generates every requested format before
+writing, rejects filename or copy collisions, and replaces the previous output
+only after the complete build succeeds. A failed one-shot build or watch cycle
+rolls back to the last successful files and build metadata.
 
 ### Node build plugins
 
@@ -214,7 +238,8 @@ during config validation after explicit CLI overrides are applied.
 Configuration
 -------------
 
-Use `webanvil.config.ts` to keep build, test, lint, and formatting settings together:
+Use `webanvil.config.ts` to keep WebAnvil orchestration and native tool settings
+together:
 
 ```ts
 import { defineConfig } from "webanvil"
@@ -225,7 +250,11 @@ export default defineConfig({
         entry: "index.html",
         outDir: "dist"
     },
+    vite: {
+        base: "/app/"
+    },
     test: {
+        globals: true,
         environment: "jsdom",
         include: ["test/**/*.test.ts"]
     },
@@ -239,6 +268,116 @@ export default defineConfig({
 })
 ```
 
+### Tool selection
+
+WebAnvil selects compatible project and workspace declarations before its own
+fallbacks. A transitive or merely hoisted package is not selected. Each command
+preflights the engines it can dispatch before `webanvil.config.*` is loaded or
+its plugins are evaluated, so a declared command engine that is missing, has
+invalid package identity, or is outside the supported range fails first.
+
+| Tool                       | Supported project/workspace versions | Exact WebAnvil fallback |
+| -------------------------- | ------------------------------------ | ----------------------- |
+| Vite                       | `>=8.1.5 <9`                         | `8.1.5`                 |
+| Vitest                     | `>=4.1.10 <5`                        | `4.1.10`                |
+| Rolldown                   | `>=1.2.0 <2`                         | `1.2.0`                 |
+| Oxlint                     | `>=1.75.0 <2`                        | `1.75.0`                |
+| Oxfmt                      | `>=0.60.0 <0.61`                     | `0.60.0`                |
+| TypeScript (declarations)  | `>=5 <7`                             | `6.0.3`                 |
+| TypeScript Native (`tsgo`) | `>=7.0.0-dev.20260707.2 <7.0.0`      | `7.0.0-dev.20260707.2`  |
+
+When a tool is first used, the CLI reports its package, version, and source, for
+example `Using rolldown 1.2.0 (project)` or
+`Using rolldown 1.2.0 (webanvil)`.
+
+The TypeScript compiler is selected only after configuration enables a
+declaration build, but before Rolldown starts that build. It follows the same
+direct project/workspace declaration and exact-fallback rules.
+
+### Native tool configuration
+
+The `vite`, `test`, `rolldown`, `lint`, and `format` blocks use the owning
+tool's exported TypeScript types. WebAnvil validates them as opaque native
+objects and passes compatible upstream options through without duplicating
+their schemas.
+
+Precedence is:
+
+1. explicit CLI values for the current run;
+2. an existing native `vite.config.*`, `vitest.config.*`, `.oxlintrc.json`, or
+   `.oxfmtrc.json`;
+3. the matching native block in `webanvil.config.*`;
+4. WebAnvil defaults.
+
+WebAnvil-owned `build`, `copy`, cross-engine `plugins`, and CLI behavior remain
+orchestration settings. `rolldown.input` and per-format `rolldown.output`
+options extend Node builds; WebAnvil still owns the input roots, output
+directory, format, cleanup, and `preserveModules` strategy.
+
+```ts
+import { defineConfig } from "webanvil"
+
+export default defineConfig({
+    build: {
+        mode: "node",
+        entries: { ".": "src/index.ts", "./feature": "src/feature.ts" },
+        formats: ["esm", "cjs"]
+    },
+    rolldown: {
+        input: {
+            resolve: { conditionNames: ["source", "node", "import"] }
+        },
+        output: {
+            esm: {
+                entryFileNames: "[name].mjs",
+                chunkFileNames: "chunks/[name]-[hash].mjs"
+            },
+            cjs: {
+                entryFileNames: "[name].js",
+                chunkFileNames: "chunks/[name]-[hash].js"
+            }
+        }
+    }
+})
+```
+
+Native `entryFileNames`, `chunkFileNames`, and `assetFileNames` accept the same
+strings or callbacks as Rolldown. WebAnvil records the actual emitted paths, so
+stale-output removal, rollback, build metadata, and `wa clean` follow customized
+names and source maps.
+
+### Node declarations
+
+`build.declaration: true` uses `rolldown-plugin-dts` with its TypeScript
+generator. Pass a native declaration options object to select the `"oxc"` or
+`"tsgo"` generator and other plugin settings:
+
+```ts
+import { defineConfig } from "webanvil"
+
+export default defineConfig({
+    build: {
+        declaration: {
+            generator: "tsc",
+            sourcemap: true
+        }
+    }
+})
+```
+
+The TypeScript generator selects a compatible project/workspace TypeScript
+declaration when present, otherwise WebAnvil's exact TypeScript fallback.
+Project-local `ts-patch` and TypeScript emit transforms are honored when they
+are directly declared and resolve to that same compiler. Emit transforms
+require the `tsc` generator; Oxc and `tsgo` are explicit alternatives.
+
+`rolldown-plugin-dts` owns declaration paths and imports. ESM-only builds attach
+one declaration graph; CommonJS-only and dual-format builds use one
+declaration-only ESM pass. Because the plugin initializes TypeScript in process,
+one process cannot switch to a different compiler path or version after its
+first TypeScript declaration build—run builds needing different compilers in
+separate processes.
+
 ### Command-line options
 
 Command-line options override the config file. For example, this writes a build to `preview` without changing `webanvil.config.ts`:
@@ -246,6 +385,10 @@ Command-line options override the config file. For example, this writes a build 
 ```sh
 wa build --out-dir preview
 ```
+
+For Node builds and watchers, `--bundle` and `--no-bundle` are explicit
+opposites. `--no-bundle` overrides `build.bundle: true` for that run and emits
+the reachable module graph with Rolldown `preserveModules`.
 
 Use `build.copy` for static files that should be copied unchanged after either a
 web or Node build. Each mapping preserves the path beneath the source glob's
@@ -293,7 +436,10 @@ These are run-specific modes; keep persistent Vitest configuration in
 
 ### Cleaning build output
 
-`wa build` records emitted and copied files in `.webanvil/buildinfo.json`. Run `wa clean` to remove only those files across every build target; source files and other untracked files stay in place. The command leaves `.webanvil/` behind with an empty output list.
+`wa build` records the actual emitted and copied files in
+`.webanvil/buildinfo.json`. Run `wa clean` to remove only those files across
+every build target; source files and other untracked files stay in place. The
+command leaves `.webanvil/` behind with an empty output list.
 
 Migration
 ---------
@@ -319,23 +465,26 @@ Install WebAnvil, then replace the project scripts with the WebAnvil commands:
 
 For a Node project that follows the defaults, this is enough. WebAnvil reads `src/index.ts`, writes to `dist`, and uses the project's TypeScript configuration when you run `wa typecheck`.
 
-Your existing configuration stays in charge. A `vite.config.*` or `vitest.config.*` takes precedence for its tool. `.oxfmtrc.json` and `.oxlintrc.json` take precedence over the matching sections in `webanvil.config.*`.
+Your existing configuration stays in charge. A `vite.config.*` or
+`vitest.config.*` takes precedence over the matching WebAnvil native block.
+`.oxfmtrc.json` and `.oxlintrc.json` do the same for Oxc. Explicit CLI values
+remain the final run-specific override.
 
 That lets a project standardize on `wa` now and move settings into `webanvil.config.ts` later, one part at a time. Start with a build entry when it makes sense, then bring over test, lint, or format settings as you touch them.
 
 Command reference
 -----------------
 
-| Command                   | Description                                                           | Options                                                                                                                                            |
-| ------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode.                | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`                     |
-| `wa clean`                | Removes files emitted by prior WebAnvil builds.                       | No options                                                                                                                                         |
-| `wa check`                | Checks formatting, linting, and types, stopping on the first failure. | `--fix`                                                                                                                                            |
-| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.                    | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target` |
-| `wa preview`              | Serves a Vite production build.                                       | `--out-dir`, `--host`, `--port`, `--open`                                                                                                          |
-| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                                      |
-| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                          | `--fix`                                                                                                                                            |
-| `wa format [paths...]`    | Formats with Oxfmt.                                                   | `--check`                                                                                                                                          |
-| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                   | No options                                                                                                                                         |
+| Command                   | Description                                                           | Options                                                                                                                                                           |
+| ------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode.                | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`                     |
+| `wa clean`                | Removes files emitted by prior WebAnvil builds.                       | No options                                                                                                                                                        |
+| `wa check`                | Checks formatting, linting, and types, stopping on the first failure. | `--fix`                                                                                                                                                           |
+| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.                    | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target` |
+| `wa preview`              | Serves a Vite production build.                                       | `--out-dir`, `--host`, `--port`, `--open`                                                                                                                         |
+| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                                                     |
+| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                          | `--fix`                                                                                                                                                           |
+| `wa format [paths...]`    | Formats with Oxfmt.                                                   | `--check`                                                                                                                                                         |
+| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                   | No options                                                                                                                                                        |
 
 Run `wa <command> --help` for the complete reference for a command.

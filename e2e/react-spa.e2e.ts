@@ -25,8 +25,13 @@ describe("react-spa", () => {
             await webanvil.format(example)
         }, 60_000)
 
-        it("builds a JSX entry with wa", async () => {
-            const output = await webanvil.build(example)
+        it("builds a production JSX entry when NODE_ENV is absent", async () => {
+            const nodeEnvironment = process.env.NODE_ENV
+            delete process.env.NODE_ENV
+            const output = await webanvil.build(example).finally(() => {
+                if (nodeEnvironment === undefined) delete process.env.NODE_ENV
+                else process.env.NODE_ENV = nodeEnvironment
+            })
             const assets = await readdir(join(output, "assets"))
             const script = assets.find((asset) => asset.endsWith(".js"))
 
@@ -35,6 +40,27 @@ describe("react-spa", () => {
 
             await expect(access(join(output, "index.html"))).resolves.toBeUndefined()
             await expect(readFile(join(output, "assets", script), "utf8")).resolves.toContain("WebAnvil React SPA")
+            await expect(readFile(join(output, "assets", script), "utf8")).resolves.not.toContain(
+                'Each child in a list should have a unique "key" prop.'
+            )
+        }, 60_000)
+
+        it("preserves an explicit NODE_ENV for command builds", async () => {
+            const nodeEnvironment = process.env.NODE_ENV
+            process.env.NODE_ENV = "development"
+            const output = await webanvil.build(example).finally(() => {
+                if (nodeEnvironment === undefined) delete process.env.NODE_ENV
+                else process.env.NODE_ENV = nodeEnvironment
+            })
+            const assets = await readdir(join(output, "assets"))
+            const script = assets.find((asset) => asset.endsWith(".js"))
+
+            expect(script).toBeDefined()
+            if (script === undefined) throw new Error("Expected a JavaScript build asset")
+
+            await expect(readFile(join(output, "assets", script), "utf8")).resolves.toContain(
+                'Each child in a list should have a unique "key" prop.'
+            )
         }, 60_000)
     })
 })

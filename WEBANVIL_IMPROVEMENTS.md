@@ -2,7 +2,7 @@
 
 ## Automatic TypeScript project-reference checking
 
-**Status:** Deferred
+**Status:** Implemented
 
 **Found in:** Pokécards
 
@@ -40,7 +40,7 @@ responsible for configuring and ignoring those files, matching `tsc -b`.
 
 ## Resolve Vite production builds with production defaults
 
-**Status:** Deferred
+**Status:** Implemented; Pokécards bundle-size parity verification remains external
 
 **Found in:** Pokécards
 
@@ -88,7 +88,7 @@ resolution because that would override intentional Vite behavior.
 
 ## Publish TypeScript declarations for the WebAnvil API
 
-**Status:** Deferred
+**Status:** Implemented; IDE autocomplete verification remains external
 
 **Found in:** Pokécards
 
@@ -138,7 +138,7 @@ condition.
 
 ## Prefer project-local toolchain packages with WebAnvil fallbacks
 
-**Status:** Deferred
+**Status:** Implemented; pnpm execution remains pending in the CI matrix
 
 **Found in:** Questline, then generalized across the WebAnvil toolchain
 
@@ -204,7 +204,7 @@ The WebAnvil fallback is for projects that do not otherwise depend on the tool.
 
 ## Store generated Oxc configs under `.webanvil/`
 
-**Status:** Deferred
+**Status:** Implemented
 
 **Found in:** Questline
 
@@ -245,7 +245,7 @@ for concurrent commands and remove each generated file in a `finally` block.
 
 ## Pass native tool configuration through unchanged
 
-**Status:** Deferred
+**Status:** Implemented; Questline migration verification remains external
 
 **Found in:** Questline
 
@@ -299,7 +299,7 @@ boundary.
 
 ## Allow custom Node output filenames and extensions
 
-**Status:** Deferred
+**Status:** Implemented; Stageplay migration verification remains external
 
 **Found in:** Stageplay
 
@@ -357,7 +357,7 @@ not through a second WebAnvil-specific filename-template API.
 
 ## Resolve project imports before externalizing dependencies
 
-**Status:** Deferred
+**Status:** Implemented; Stageplay migration verification remains external
 
 **Found in:** Stageplay
 
@@ -429,7 +429,7 @@ and external configuration remains the user override.
 
 ## Build unbundled Node output with Rolldown `preserveModules`
 
-**Status:** Deferred
+**Status:** Implemented; Argvex, Cmdore, and Stageplay migration verification remains external
 
 **Found in:** Argvex, Cmdore, and Stageplay
 
@@ -499,7 +499,7 @@ Unreferenced files are no longer assumed to be publishable.
 
 ## Replace declaration post-processing with `rolldown-plugin-dts`
 
-**Status:** Deferred
+**Status:** Implemented; Argvex and Cmdore migration verification remains external
 
 **Found in:** Argvex and Cmdore
 

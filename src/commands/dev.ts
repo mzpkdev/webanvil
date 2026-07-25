@@ -1,12 +1,21 @@
-import { defineCommand } from "cmdore"
-import { type Plugin as RolldownPlugin, watch } from "rolldown"
-import { createServer } from "vite"
+import { defineCommand, defineOption } from "cmdore"
+import type { Plugin as RolldownPlugin } from "rolldown"
+import type { UserConfig as ViteConfig } from "vite"
 
 import { entry } from "../arguments"
 import { hasToolConfig } from "../config-files"
-import { assertSyntaxTarget, resolveEffectiveBuildConfig, withConfig } from "../config"
+import {
+    assertSyntaxTarget,
+    type BuildConfig,
+    type CopyMapping,
+    type RolldownConfig,
+    resolveEffectiveBuildConfig,
+    withConfig
+} from "../config"
 import { createNodeBuildPlan, type NodeBuildOptions, nodeWatchLifecycle } from "../core/node-build"
+import { Toolchain } from "../core/toolchain"
 import { untilTerminated } from "../core/until-terminated"
+import { useToolApi } from "../core/use-tool"
 import {
     bundle,
     copy,
@@ -24,6 +33,28 @@ import {
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
 import { logger } from "../tools"
 
+type DevCommandArguments = {
+    bundle?: boolean
+    copy?: CopyMapping[]
+    declaration?: BuildConfig["declaration"]
+    entry?: string
+    formats?: Array<"esm" | "cjs">
+    host?: string
+    minify?: boolean
+    mode?: "web" | "node"
+    "no-bundle"?: boolean
+    "out-dir"?: string
+    platform?: "node" | "browser" | "neutral"
+    port?: number
+    sourcemap?: boolean
+    target?: string | string[]
+}
+const noBundle = defineOption({
+    name: "no-bundle",
+    description: "Emit the reachable Node graph with preserveModules, overriding configuration that enables bundling.",
+    arity: 0
+})
+
 export const dev = async (
     mode: "web" | "node",
     entry: string,
@@ -31,7 +62,10 @@ export const dev = async (
     host?: string,
     port?: number,
     plugins: WebAnvilPlugin[] = [],
-    options: NodeBuildOptions = {}
+    options: NodeBuildOptions = {},
+    viteConfig: ViteConfig = {},
+    rolldownConfig: RolldownConfig = {},
+    toolchain = new Toolchain(process.cwd())
 ): Promise<void> => {
     assertSyntaxTarget(options.target)
     if (mode === "web" && options.platform !== undefined) {
@@ -44,21 +78,31 @@ export const dev = async (
         throw new Error("--host and --port are only available in web development mode")
     }
 
-    if (mode === "web") await dev.web(host, port, plugins)
-    else await dev.node(entry, outDir, plugins, untilTerminated, options)
+    if (mode === "web") await dev.web(host, port, plugins, untilTerminated, viteConfig, toolchain)
+    else await dev.node(entry, outDir, plugins, untilTerminated, options, rolldownConfig, toolchain)
 }
 
 dev.web = async (
     host?: string,
     port?: number,
     plugins: WebAnvilPlugin[] = [],
-    waitForTermination: () => Promise<void> = untilTerminated
+    waitForTermination: () => Promise<void> = untilTerminated,
+    viteConfig: ViteConfig = {},
+    toolchain = new Toolchain(process.cwd())
 ): Promise<void> => {
-    const server = await createServer({
+    const vite = await useToolApi<typeof import("vite")>("vite", undefined, toolchain)
+    const webanvilDefaults: ViteConfig = {
         root: process.cwd(),
-        plugins: (await hasToolConfig("vite")) ? [] : resolveVitePlugins(plugins),
-        server: { host, port }
-    })
+        plugins: resolveVitePlugins(plugins)
+    }
+    const explicit: ViteConfig = {
+        root: process.cwd(),
+        ...(host === undefined && port === undefined ? {} : { server: { host, port } })
+    }
+    const config = (await hasToolConfig("vite"))
+        ? explicit
+        : vite.mergeConfig(vite.mergeConfig(webanvilDefaults, viteConfig), explicit)
+    const server = await vite.createServer(config)
 
     try {
         await server.listen()
@@ -74,14 +118,28 @@ dev.node = async (
     outDir: string,
     plugins: WebAnvilPlugin[] = [],
     waitForTermination: () => Promise<void> = untilTerminated,
-    options: NodeBuildOptions = {}
+    options: NodeBuildOptions = {},
+    rolldownConfig: RolldownConfig = {},
+    toolchain = new Toolchain(process.cwd())
 ): Promise<void> => {
     assertSyntaxTarget(options.target)
-    const plan = await createNodeBuildPlan(entry, outDir, options, resolveRolldownPlugins(plugins))
-    const lifecycle = nodeWatchLifecycle(plan)
-    plan.output.input.plugins = [...((plan.output.input.plugins ?? []) as RolldownPlugin[]), lifecycle.plugin]
-    const watcher = watch({
+    const rolldown = await useToolApi<typeof import("rolldown")>("rolldown", undefined, toolchain)
+    const plan = await createNodeBuildPlan(
+        entry,
+        outDir,
+        options,
+        resolveRolldownPlugins(plugins),
+        rolldownConfig,
+        toolchain
+    )
+    const lifecycle = nodeWatchLifecycle(plan, rolldown.rolldown)
+    const watcher = rolldown.watch({
         ...plan.output.input,
+        plugins: [...((plan.output.input.plugins ?? []) as RolldownPlugin[]), lifecycle.plugin],
+        watch: {
+            ...(typeof plan.output.input.watch === "object" ? plan.output.input.watch : {}),
+            skipWrite: true
+        },
         output: plan.output.output
     })
     let failed = false
@@ -89,7 +147,7 @@ dev.node = async (
     watcher.on("event", async (event) => {
         if (event.code === "START") {
             failed = false
-            await lifecycle.start()
+            lifecycle.abort()
         }
 
         if (event.code === "BUNDLE_END") {
@@ -98,8 +156,8 @@ dev.node = async (
 
         if (event.code === "END" && !failed) {
             try {
-                await lifecycle.complete()
-                logger.success(`Built ${entry} to ${outDir}`)
+                const output = await lifecycle.complete()
+                if (output !== undefined) logger.success(`Built ${entry} to ${outDir}`)
             } catch (error) {
                 logger.error(error)
             }
@@ -116,19 +174,16 @@ dev.node = async (
     try {
         await waitForTermination()
     } finally {
+        lifecycle.abort()
         await watcher.close()
     }
 }
 
-export default defineCommand({
-    name: "dev",
-    arguments: [entry],
-    options: [mode, outDir, host, port, bundle, copy, declaration, sourcemap, minify, formats, platform, target],
-    run: withConfig(
+const commandRun = (toolchain: Toolchain) =>
+    withConfig<BuildConfig, DevCommandArguments, void>(
         (config) => config.build,
         (
             {
-                bundle,
                 copy,
                 declaration,
                 formats,
@@ -146,10 +201,14 @@ export default defineCommand({
             resolvedConfig,
             explicit
         ) => {
+            if (explicit.bundle && explicit["no-bundle"]) {
+                throw new Error("--bundle and --no-bundle cannot be used together")
+            }
+            const effectiveBundle = explicit["no-bundle"] ? false : explicit.bundle ? true : buildConfig.bundle
             const effective = resolveEffectiveBuildConfig(
                 resolvedConfig,
                 {
-                    bundle: bundle || buildConfig.bundle,
+                    bundle: effectiveBundle,
                     copy,
                     declaration,
                     entries: buildConfig.entries,
@@ -172,8 +231,35 @@ export default defineCommand({
                 host,
                 port,
                 resolvedConfig.plugins ?? [],
-                effective
+                effective,
+                resolvedConfig.vite,
+                resolvedConfig.rolldown,
+                toolchain
             )
         }
     )
+
+export default defineCommand({
+    name: "dev",
+    arguments: [entry],
+    options: [
+        mode,
+        outDir,
+        host,
+        port,
+        bundle,
+        noBundle,
+        copy,
+        declaration,
+        sourcemap,
+        minify,
+        formats,
+        platform,
+        target
+    ],
+    run: async (arguments_) => {
+        const toolchain = new Toolchain(process.cwd())
+        await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
+        return commandRun(toolchain)(arguments_)
+    }
 })
