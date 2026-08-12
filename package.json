@@ -1,6 +1,28 @@
 {
     "name": "webanvil",
-    "version": "1.0.0",
+    "version": "0.0.7",
+    "description": "A unified CLI for building, testing, linting, formatting, and type-checking JavaScript and TypeScript projects.",
+    "keywords": [
+        "build-tool",
+        "cli",
+        "javascript",
+        "rolldown",
+        "typescript",
+        "vite",
+        "vitest"
+    ],
+    "homepage": "https://mzpkdev.github.io/webanvil/",
+    "bugs": "https://github.com/mzpkdev/webanvil/issues",
+    "license": "MIT",
+    "author": {
+        "name": "Mateusz Pietrzak",
+        "email": "mateusz@mzpk.dev",
+        "url": "https://github.com/mzpkdev"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mzpkdev/webanvil.git"
+    },
     "bin": {
         "wa": "bin/webanvil",
         "webanvil": "bin/webanvil"
@@ -19,6 +41,10 @@
             "import": "./dist/index.mjs",
             "default": "./dist/index.mjs"
         }
+    },
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
     },
     "scripts": {
         "build": "obuild",
@@ -55,13 +81,16 @@
         "semver": "7.8.5",
         "tinyglobby": "^0.2.15",
         "typescript": "6.0.3",
-        "unplugin": "^3.3.0",
         "vite": "8.1.5",
         "vitest": "4.1.10",
         "yaml": "^2.9.0",
         "zod": "^4.4.3"
     },
     "devDependencies": {
-        "obuild": "^0.4.38"
+        "obuild": "^0.4.38",
+        "unplugin": "^3.3.0"
+    },
+    "engines": {
+        "node": "^22.18.0 || >=24.11.0"
     }
 }
