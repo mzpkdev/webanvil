@@ -5,12 +5,11 @@ import { glob } from "tinyglobby"
 import type { InlineConfig, PluginOption, UserConfig as ViteConfig } from "vite"
 
 import { entry } from "../arguments"
-import { hasToolConfig } from "../config-files"
+import { hasConfiguredStorybookMode, hasToolConfig } from "../config-files"
 import {
     assertSyntaxTarget,
     type BuildConfig,
     type CopyMapping,
-    loadConfig,
     type RolldownConfig,
     resolveEffectiveBuildConfig,
     withConfig
@@ -280,11 +279,10 @@ export default defineCommand({
     arguments: [entry],
     options: [mode, outDir, bundle, noBundle, copy, declaration, sourcemap, minify, formats, platform, target],
     run: async (arguments_) => {
-        const preloadedConfig = arguments_.mode === undefined ? (await loadConfig()).config : undefined
-        const selectedMode = arguments_.mode ?? preloadedConfig?.build?.mode
+        const selectedMode = arguments_.mode ?? ((await hasConfiguredStorybookMode()) ? "storybook" : undefined)
         const toolchain = new Toolchain(process.cwd())
         if (selectedMode === "storybook") await toolchain.resolve("storybook")
         else await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
-        return commandRun(toolchain)(arguments_, preloadedConfig)
+        return commandRun(toolchain)(arguments_)
     }
 })

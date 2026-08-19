@@ -170,4 +170,28 @@ describe("test", () => {
 
         expect(createStorybookTestProject).not.toHaveBeenCalled()
     })
+
+    it("keeps native Vitest projects when it runs Storybook tests", async () => {
+        const directory = await createDirectory()
+        await mkdir(join(directory, ".storybook"))
+        await writeFile(join(directory, ".storybook", "main.ts"), "export default {}")
+        await writeFile(join(directory, "vitest.config.ts"), "export default { test: { projects: ['test'] } }")
+        process.chdir(directory)
+
+        await test([], {}, {}, undefined, { configDir: ".storybook" })
+
+        expect(startVitest).toHaveBeenCalledTimes(2)
+        expect(startVitest).toHaveBeenNthCalledWith(
+            1,
+            "test",
+            [],
+            expect.not.objectContaining({ projects: expect.anything() })
+        )
+        expect(startVitest).toHaveBeenNthCalledWith(
+            2,
+            "test",
+            [],
+            expect.objectContaining({ projects: [{ extends: true, test: { name: "storybook" } }] })
+        )
+    })
 })

@@ -53,7 +53,7 @@ describe("build", () => {
 
         await expect(
             execute([buildCommand], {
-                argv: ["build", "--mode", "node"],
+                argv: ["build"],
                 metadata: { name: "wa" },
                 onError: "throw"
             })

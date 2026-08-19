@@ -37,9 +37,8 @@ export const test = async (
         storybook.test === false || !(await hasStorybookConfig(storybook.configDir))
             ? undefined
             : await createStorybookTestProject(storybook, vitestTool.version)
-    const vitest = await startVitest("test", filters, {
+    const vitestOptions: NonNullable<Parameters<typeof startVitest>[2]> = {
         ...nativeConfig,
-        ...(storybookProject === undefined ? {} : { projects: [...(nativeConfig.projects ?? []), storybookProject] }),
         passWithNoTests: true,
         run: !persistent,
         watch: persistent,
@@ -49,20 +48,36 @@ export const test = async (
         ...(options.uiPort === undefined
             ? {}
             : { api: { ...nativeApi, host: "127.0.0.1", port: options.uiPort, strictPort: true } })
-    })
+    }
+    const vitests =
+        hasVitestConfig && storybookProject !== undefined
+            ? [
+                  await startVitest("test", filters, vitestOptions),
+                  await startVitest("test", filters, { ...vitestOptions, projects: [storybookProject] })
+              ]
+            : [
+                  await startVitest("test", filters, {
+                      ...vitestOptions,
+                      ...(storybookProject === undefined
+                          ? {}
+                          : { projects: [...(nativeConfig.projects ?? []), storybookProject] })
+                  })
+              ]
     if (persistent) {
         try {
             await waitForTermination()
         } finally {
-            await vitest.close()
+            await Promise.all(vitests.map((vitest) => vitest.close()))
         }
         return
     }
-    const failed =
-        vitest.state.getFiles().some((file) => file.result?.state === "fail") ||
-        vitest.state.getUnhandledErrors().length > 0
+    const failed = vitests.some(
+        (vitest) =>
+            vitest.state.getFiles().some((file) => file.result?.state === "fail") ||
+            vitest.state.getUnhandledErrors().length > 0
+    )
 
-    await vitest.close()
+    await Promise.all(vitests.map((vitest) => vitest.close()))
 
     if (failed) throw new Error("Tests failed")
 
