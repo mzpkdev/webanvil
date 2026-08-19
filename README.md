@@ -174,7 +174,18 @@ Use `webanvil/storybook/react`, `webanvil/storybook/vue`, or
 `webanvil/storybook/web-components` for those frameworks. The WebAnvil wrapper
 uses the framework plugins already declared in `webanvil.config.*`.
 
-Run Storybook through the normal commands:
+Set Storybook as the project's build mode when it is the primary development
+target:
+
+```ts
+import { defineConfig } from "webanvil"
+
+export default defineConfig({
+    build: { mode: "storybook" }
+})
+```
+
+Or select it for one command:
 
 ```sh
 wa dev --mode storybook

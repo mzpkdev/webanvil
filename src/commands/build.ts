@@ -212,7 +212,7 @@ const commandRun = (toolchain: Toolchain) =>
             resolvedConfig,
             explicit
         ) => {
-            if (explicit.mode === "storybook") {
+            if (mode === "storybook") {
                 assertStorybookArguments(explicit)
                 const storybookOptions = { outDir: explicit["out-dir"] === undefined ? undefined : outDir }
                 const outputDirectory = storybookOutputDir(resolvedConfig.storybook, storybookOptions)
@@ -231,7 +231,6 @@ const commandRun = (toolchain: Toolchain) =>
                 throw new Error("--bundle and --no-bundle cannot be used together")
             }
             const effectiveBundle = explicit["no-bundle"] ? false : explicit.bundle ? true : buildConfig.bundle
-            const effectiveMode = mode === "storybook" ? undefined : mode
             const effective = resolveEffectiveBuildConfig(
                 resolvedConfig,
                 {
@@ -242,7 +241,7 @@ const commandRun = (toolchain: Toolchain) =>
                     entry,
                     formats,
                     minify,
-                    mode: effectiveMode,
+                    mode,
                     outDir,
                     platform,
                     sourcemap,
@@ -251,8 +250,12 @@ const commandRun = (toolchain: Toolchain) =>
                 explicit.entry !== undefined
             )
 
+            const executableMode = effective.mode
+            if (executableMode !== "web" && executableMode !== "node")
+                throw new Error("Expected a web or Node build mode")
+
             return build(
-                effective.mode!,
+                executableMode,
                 effective.entry!,
                 effective.outDir!,
                 effective,
