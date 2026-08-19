@@ -4,7 +4,8 @@ import { defineCommand } from "cmdore"
 import type { UserConfig as ViteConfig } from "vite"
 
 import { hasToolConfig } from "../config-files"
-import { loadConfig } from "../config"
+import { loadConfig, resolveEffectiveBuildConfig } from "../config"
+import { storybookOutputDir } from "../core/storybook"
 import { untilTerminated } from "../core/until-terminated"
 import { useTool, useToolApi } from "../core/use-tool"
 import { host, open, outDir, port } from "../options"
@@ -51,11 +52,13 @@ export default defineCommand({
     run: async ({ "out-dir": outDir, host, port, open }) => {
         await useTool("vite")
         const { config } = await loadConfig()
+        resolveEffectiveBuildConfig(config, {}, false)
+        const storybook = config.storybook
         return preview(
-            outDir ?? config.build?.outDir ?? "dist",
+            outDir ?? (storybook === undefined ? (config.build?.outDir ?? "dist") : storybookOutputDir(storybook)),
             host,
             port,
-            outDir !== undefined,
+            outDir !== undefined || storybook !== undefined,
             untilTerminated,
             open,
             config.vite

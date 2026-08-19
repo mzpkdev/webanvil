@@ -6,10 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { startVitest } from "vitest/node"
 
 import { test } from "../src/commands/test"
-import { createStorybookTestProject } from "../src/core/storybook"
+import { createStorybookTestProject, prepareStorybookConfig } from "../src/core/storybook"
 
 vi.mock("vitest/node", () => ({ startVitest: vi.fn() }))
-vi.mock("../src/core/storybook", () => ({ createStorybookTestProject: vi.fn() }))
+vi.mock("../src/core/storybook", () => ({ createStorybookTestProject: vi.fn(), prepareStorybookConfig: vi.fn() }))
 
 const directories: string[] = []
 const initialDirectory = process.cwd()
@@ -33,6 +33,11 @@ beforeEach(() => {
     vi.mocked(startVitest).mockResolvedValue(createVitest() as never)
     vi.mocked(createStorybookTestProject).mockReset()
     vi.mocked(createStorybookTestProject).mockResolvedValue({ extends: true, test: { name: "storybook" } })
+    vi.mocked(prepareStorybookConfig).mockReset()
+    vi.mocked(prepareStorybookConfig).mockImplementation(async (config) => ({
+        config: { ...config, configDir: ".storybook.webanvil" },
+        cleanup: async () => undefined
+    }))
 })
 
 afterEach(async () => {
@@ -150,9 +155,12 @@ describe("test", () => {
         await writeFile(join(directory, ".storybook", "main.ts"), "export default {}")
         process.chdir(directory)
 
-        await test([], {}, {}, undefined, { configDir: ".storybook" })
+        await test([], {}, {}, undefined, { framework: "svelte", configDir: ".storybook" })
 
-        expect(createStorybookTestProject).toHaveBeenCalledWith({ configDir: ".storybook" }, "4.1.10")
+        expect(createStorybookTestProject).toHaveBeenCalledWith(
+            { framework: "svelte", configDir: ".storybook.webanvil" },
+            "4.1.10"
+        )
         expect(startVitest).toHaveBeenCalledWith(
             "test",
             [],
@@ -166,7 +174,7 @@ describe("test", () => {
         await writeFile(join(directory, ".storybook", "main.ts"), "export default {}")
         process.chdir(directory)
 
-        await test([], {}, {}, undefined, { test: false })
+        await test([], {}, {}, undefined, { framework: "svelte", test: false })
 
         expect(createStorybookTestProject).not.toHaveBeenCalled()
     })
@@ -178,7 +186,7 @@ describe("test", () => {
         await writeFile(join(directory, "vitest.config.ts"), "export default { test: { projects: ['test'] } }")
         process.chdir(directory)
 
-        await test([], {}, {}, undefined, { configDir: ".storybook" })
+        await test([], {}, {}, undefined, { framework: "svelte", configDir: ".storybook" })
 
         expect(startVitest).toHaveBeenCalledTimes(2)
         expect(startVitest).toHaveBeenNthCalledWith(
@@ -202,7 +210,10 @@ describe("test", () => {
         await writeFile(join(directory, "vitest.config.ts"), "export default {}")
         process.chdir(directory)
 
-        await test([], {}, { ui: true, uiPort: 51_204 }, async () => undefined, { configDir: ".storybook" })
+        await test([], {}, { ui: true, uiPort: 51_204 }, async () => undefined, {
+            framework: "svelte",
+            configDir: ".storybook"
+        })
 
         expect(startVitest).toHaveBeenNthCalledWith(2, "test", [], expect.objectContaining({ api: false, ui: false }))
     })

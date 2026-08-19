@@ -287,11 +287,11 @@ describe("loadConfig", () => {
             await expect(loadConfig(directory)).rejects.toThrow()
         })
 
-        it("accepts Storybook as a build mode", async () => {
+        it("rejects Storybook as a build mode", async () => {
             const directory = await createDirectory()
             await writeFile(join(directory, "webanvil.config.ts"), 'export default { build: { mode: "storybook" } }')
 
-            await expect(loadConfig(directory)).resolves.toMatchObject({ config: { build: { mode: "storybook" } } })
+            await expect(loadConfig(directory)).rejects.toThrow()
         })
 
         it("leaves native test-field validation to Vitest", async () => {

@@ -1,4 +1,4 @@
-import { resolve } from "pathe"
+import { relative, resolve } from "pathe"
 
 import { defineCommand, defineOption } from "cmdore"
 import { glob } from "tinyglobby"
@@ -11,6 +11,7 @@ import {
     type BuildConfig,
     type CopyMapping,
     type RolldownConfig,
+    type StorybookConfig,
     loadConfig,
     resolveEffectiveBuildConfig,
     withConfig
@@ -37,7 +38,7 @@ type BuildCommandArguments = {
     entry?: string
     formats?: Array<"esm" | "cjs">
     minify?: boolean
-    mode?: "web" | "node" | "storybook"
+    mode?: "web" | "node"
     "no-bundle"?: boolean
     "out-dir"?: string
     platform?: "node" | "browser" | "neutral"
@@ -50,25 +51,6 @@ const noBundle = defineOption({
     arity: 0
 })
 
-const assertStorybookArguments = (explicit: BuildCommandArguments): void => {
-    const incompatible = [
-        "bundle",
-        "copy",
-        "declaration",
-        "entry",
-        "formats",
-        "minify",
-        "no-bundle",
-        "platform",
-        "sourcemap",
-        "target"
-    ] as const
-    const option = incompatible.find((name) => {
-        const value = explicit[name]
-        return name === "bundle" || name === "no-bundle" ? value === true : value !== undefined
-    })
-    if (option !== undefined) throw new Error(`--${option} is not available in Storybook mode`)
-}
 type WebBuild = {
     config: InlineConfig
     emptyOutDir: boolean
@@ -204,6 +186,31 @@ build.web = async (web: WebBuild): Promise<string[]> => [
     ...(await build.publicOutputFiles(web))
 ]
 
+const outputContains = (directory: string, path: string): boolean => {
+    const location = relative(directory, path)
+    return location === "" || (location !== ".." && !location.startsWith("../"))
+}
+
+const assertSeparateStorybookOutput = (outDir: string, storybook: StorybookConfig): void => {
+    const output = resolve(process.cwd(), outDir)
+    const storybookOutput = resolve(process.cwd(), storybookOutputDir(storybook))
+    if (outputContains(output, storybookOutput) || outputContains(storybookOutput, output)) {
+        throw new Error("storybook.outDir must not overlap build.outDir")
+    }
+}
+
+const buildStorybook = async (storybook: StorybookConfig, toolchain: Toolchain): Promise<void> => {
+    const outputDirectory = storybookOutputDir(storybook)
+    const existing = await removeOutputsIn(outputDirectory)
+    await runStorybook("build", storybook, {}, toolchain)
+    const output = await glob("**/*", {
+        cwd: resolve(process.cwd(), outputDirectory),
+        dot: true,
+        onlyFiles: true
+    })
+    await writeBuildInfo([...existing.output, ...output.map((file) => resolve(outputDirectory, file))])
+}
+
 const commandRun = (toolchain: Toolchain) =>
     withConfig<BuildConfig, BuildCommandArguments, void>(
         (config) => config.build,
@@ -213,21 +220,6 @@ const commandRun = (toolchain: Toolchain) =>
             resolvedConfig,
             explicit
         ) => {
-            if (mode === "storybook") {
-                assertStorybookArguments(explicit)
-                const storybookOptions = { outDir: explicit["out-dir"] === undefined ? undefined : outDir }
-                const outputDirectory = storybookOutputDir(resolvedConfig.storybook, storybookOptions)
-                return (async () => {
-                    const existing = await removeOutputsIn(outputDirectory)
-                    await runStorybook("build", resolvedConfig.storybook, storybookOptions, toolchain)
-                    const output = await glob("**/*", {
-                        cwd: resolve(process.cwd(), outputDirectory),
-                        dot: true,
-                        onlyFiles: true
-                    })
-                    await writeBuildInfo([...existing.output, ...output.map((file) => resolve(outputDirectory, file))])
-                })()
-            }
             if (explicit.bundle && explicit["no-bundle"]) {
                 throw new Error("--bundle and --no-bundle cannot be used together")
             }
@@ -255,23 +247,29 @@ const commandRun = (toolchain: Toolchain) =>
             if (executableMode !== "web" && executableMode !== "node")
                 throw new Error("Expected a web or Node build mode")
 
-            return build(
-                executableMode,
-                effective.entry!,
-                effective.outDir!,
-                effective,
-                resolvedConfig.plugins ?? [],
-                resolvedConfig.vite,
-                resolvedConfig.rolldown,
-                toolchain,
-                {
-                    ...(explicit.entry === undefined ? {} : { entry }),
-                    ...(explicit["out-dir"] === undefined ? {} : { outDir }),
-                    ...(explicit.minify === undefined ? {} : { minify }),
-                    ...(explicit.sourcemap === undefined ? {} : { sourcemap }),
-                    ...(explicit.target === undefined ? {} : { target })
+            return (async () => {
+                if (resolvedConfig.storybook !== undefined) {
+                    assertSeparateStorybookOutput(effective.outDir!, resolvedConfig.storybook)
                 }
-            )
+                await build(
+                    executableMode,
+                    effective.entry!,
+                    effective.outDir!,
+                    effective,
+                    resolvedConfig.plugins ?? [],
+                    resolvedConfig.vite,
+                    resolvedConfig.rolldown,
+                    toolchain,
+                    {
+                        ...(explicit.entry === undefined ? {} : { entry }),
+                        ...(explicit["out-dir"] === undefined ? {} : { outDir }),
+                        ...(explicit.minify === undefined ? {} : { minify }),
+                        ...(explicit.sourcemap === undefined ? {} : { sourcemap }),
+                        ...(explicit.target === undefined ? {} : { target })
+                    }
+                )
+                if (resolvedConfig.storybook !== undefined) await buildStorybook(resolvedConfig.storybook, toolchain)
+            })()
         }
     )
 
@@ -280,11 +278,11 @@ export default defineCommand({
     arguments: [entry],
     options: [mode, outDir, bundle, noBundle, copy, declaration, sourcemap, minify, formats, platform, target],
     run: async (arguments_) => {
-        const config = arguments_.mode === undefined ? (await loadConfig()).config : undefined
-        const selectedMode = arguments_.mode ?? config?.build?.mode
+        const configured = arguments_.mode === undefined ? (await loadConfig()).config : undefined
         const toolchain = new Toolchain(process.cwd())
-        if (selectedMode === "storybook") await toolchain.resolve("storybook")
-        else await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
+        await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
+        const config = configured ?? (await loadConfig()).config
+        if (config.storybook !== undefined) await toolchain.resolve("storybook")
         return commandRun(toolchain)(arguments_, config)
     }
 })

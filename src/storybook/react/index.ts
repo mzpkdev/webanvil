@@ -1,6 +1,10 @@
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-export type { StorybookConfig } from "@storybook/react-vite/node"
+import type { StorybookConfig as NativeStorybookConfig } from "@storybook/react-vite/node"
+
+export type StorybookConfig = Omit<NativeStorybookConfig, "framework"> & {
+    framework?: NativeStorybookConfig["framework"]
+}
 
 export const framework = dirname(fileURLToPath(import.meta.url))

@@ -2,8 +2,8 @@ import { defineCommand } from "cmdore"
 
 import { filters } from "../arguments"
 import { hasStorybookConfig, hasToolConfig } from "../config-files"
-import { type StorybookConfig, type TestConfig, withConfig } from "../config"
-import { createStorybookTestProject } from "../core/storybook"
+import { effectiveUserConfigSchema, type StorybookConfig, type TestConfig, withConfig } from "../config"
+import { createStorybookTestProject, prepareStorybookConfig } from "../core/storybook"
 import { untilTerminated } from "../core/until-terminated"
 import { useTool } from "../core/use-tool"
 import { coverage, environment, ui, uiPort, watch } from "../options"
@@ -33,59 +33,69 @@ export const test = async (
     const nativeCoverage =
         typeof nativeConfig.coverage === "object" && nativeConfig.coverage !== null ? nativeConfig.coverage : {}
     const nativeApi = typeof nativeConfig.api === "object" && nativeConfig.api !== null ? nativeConfig.api : {}
-    const storybookProject =
-        storybook.test === false || !(await hasStorybookConfig(storybook.configDir))
+    const preparedStorybook =
+        storybook.framework === undefined ||
+        storybook.test === false ||
+        !(await hasStorybookConfig(storybook.configDir))
             ? undefined
-            : await createStorybookTestProject(storybook, vitestTool.version)
-    const vitestOptions: NonNullable<Parameters<typeof startVitest>[2]> = {
-        ...nativeConfig,
-        passWithNoTests: true,
-        run: !persistent,
-        watch: persistent,
-        ...(options.environment === undefined ? {} : { environment: options.environment }),
-        ...(options.coverage ? { coverage: { ...nativeCoverage, enabled: true, provider: "v8" } } : {}),
-        ...(options.ui ? { ui: true } : {}),
-        ...(options.uiPort === undefined
-            ? {}
-            : { api: { ...nativeApi, host: "127.0.0.1", port: options.uiPort, strictPort: true } })
-    }
-    const vitests =
-        hasVitestConfig && storybookProject !== undefined
-            ? [
-                  await startVitest("test", filters, vitestOptions),
-                  await startVitest("test", filters, {
-                      ...vitestOptions,
-                      ...(options.ui ? { api: false, ui: false } : {}),
-                      projects: [storybookProject]
-                  })
-              ]
-            : [
-                  await startVitest("test", filters, {
-                      ...vitestOptions,
-                      ...(storybookProject === undefined
-                          ? {}
-                          : { projects: [...(nativeConfig.projects ?? []), storybookProject] })
-                  })
-              ]
-    if (persistent) {
-        try {
-            await waitForTermination()
-        } finally {
-            await Promise.all(vitests.map((vitest) => vitest.close()))
+            : await prepareStorybookConfig(storybook)
+    try {
+        const storybookProject =
+            preparedStorybook === undefined
+                ? undefined
+                : await createStorybookTestProject(preparedStorybook.config, vitestTool.version)
+        const vitestOptions: NonNullable<Parameters<typeof startVitest>[2]> = {
+            ...nativeConfig,
+            passWithNoTests: true,
+            run: !persistent,
+            watch: persistent,
+            ...(options.environment === undefined ? {} : { environment: options.environment }),
+            ...(options.coverage ? { coverage: { ...nativeCoverage, enabled: true, provider: "v8" } } : {}),
+            ...(options.ui ? { ui: true } : {}),
+            ...(options.uiPort === undefined
+                ? {}
+                : { api: { ...nativeApi, host: "127.0.0.1", port: options.uiPort, strictPort: true } })
         }
-        return
+        const vitests =
+            hasVitestConfig && storybookProject !== undefined
+                ? [
+                      await startVitest("test", filters, vitestOptions),
+                      await startVitest("test", filters, {
+                          ...vitestOptions,
+                          ...(options.ui ? { api: false, ui: false } : {}),
+                          projects: [storybookProject]
+                      })
+                  ]
+                : [
+                      await startVitest("test", filters, {
+                          ...vitestOptions,
+                          ...(storybookProject === undefined
+                              ? {}
+                              : { projects: [...(nativeConfig.projects ?? []), storybookProject] })
+                      })
+                  ]
+        if (persistent) {
+            try {
+                await waitForTermination()
+            } finally {
+                await Promise.all(vitests.map((vitest) => vitest.close()))
+            }
+            return
+        }
+        const failed = vitests.some(
+            (vitest) =>
+                vitest.state.getFiles().some((file) => file.result?.state === "fail") ||
+                vitest.state.getUnhandledErrors().length > 0
+        )
+
+        await Promise.all(vitests.map((vitest) => vitest.close()))
+
+        if (failed) throw new Error("Tests failed")
+
+        logger.success("Tests passed")
+    } finally {
+        await preparedStorybook?.cleanup()
     }
-    const failed = vitests.some(
-        (vitest) =>
-            vitest.state.getFiles().some((file) => file.result?.state === "fail") ||
-            vitest.state.getUnhandledErrors().length > 0
-    )
-
-    await Promise.all(vitests.map((vitest) => vitest.close()))
-
-    if (failed) throw new Error("Tests failed")
-
-    logger.success("Tests passed")
 }
 
 const runTest = withConfig<
@@ -101,8 +111,9 @@ const runTest = withConfig<
     void
 >(
     (config) => config.test,
-    ({ filters, environment, coverage, ui, "ui-port": uiPort, watch }, config, resolvedConfig, explicitArguments) =>
-        test(
+    ({ filters, environment, coverage, ui, "ui-port": uiPort, watch }, config, resolvedConfig, explicitArguments) => {
+        effectiveUserConfigSchema.parse(resolvedConfig)
+        return test(
             filters,
             config,
             {
@@ -115,6 +126,7 @@ const runTest = withConfig<
             untilTerminated,
             resolvedConfig.storybook
         )
+    }
 )
 
 export default defineCommand({

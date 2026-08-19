@@ -9,12 +9,13 @@ import {
     type BuildConfig,
     type CopyMapping,
     type RolldownConfig,
+    type StorybookConfig,
     loadConfig,
     resolveEffectiveBuildConfig,
     withConfig
 } from "../config"
 import { createNodeBuildPlan, type NodeBuildOptions, nodeWatchLifecycle } from "../core/node-build"
-import { runStorybook } from "../core/storybook"
+import { startStorybook, type StorybookProcess } from "../core/storybook"
 import { Toolchain } from "../core/toolchain"
 import { untilTerminated } from "../core/until-terminated"
 import { useToolApi } from "../core/use-tool"
@@ -43,7 +44,7 @@ type DevCommandArguments = {
     formats?: Array<"esm" | "cjs">
     host?: string
     minify?: boolean
-    mode?: "web" | "node" | "storybook"
+    mode?: "web" | "node"
     "no-bundle"?: boolean
     "out-dir"?: string
     platform?: "node" | "browser" | "neutral"
@@ -56,27 +57,6 @@ const noBundle = defineOption({
     description: "Emit the reachable Node graph with preserveModules, overriding configuration that enables bundling.",
     arity: 0
 })
-
-const assertStorybookArguments = (explicit: DevCommandArguments): void => {
-    const incompatible = [
-        "bundle",
-        "copy",
-        "declaration",
-        "entry",
-        "formats",
-        "minify",
-        "no-bundle",
-        "out-dir",
-        "platform",
-        "sourcemap",
-        "target"
-    ] as const
-    const option = incompatible.find((name) => {
-        const value = explicit[name]
-        return name === "bundle" || name === "no-bundle" ? value === true : value !== undefined
-    })
-    if (option !== undefined) throw new Error(`--${option} is not available in Storybook mode`)
-}
 
 export const dev = async (
     mode: "web" | "node",
@@ -143,7 +123,8 @@ dev.node = async (
     waitForTermination: () => Promise<void> = untilTerminated,
     options: NodeBuildOptions = {},
     rolldownConfig: RolldownConfig = {},
-    toolchain = new Toolchain(process.cwd())
+    toolchain = new Toolchain(process.cwd()),
+    onBuild?: () => void | Promise<void>
 ): Promise<void> => {
     assertSyntaxTarget(options.target)
     const rolldown = await useToolApi<typeof import("rolldown")>("rolldown", undefined, toolchain)
@@ -180,7 +161,10 @@ dev.node = async (
         if (event.code === "END" && !failed) {
             try {
                 const output = await lifecycle.complete()
-                if (output !== undefined) logger.success(`Built ${entry} to ${outDir}`)
+                if (output !== undefined) {
+                    logger.success(`Built ${entry} to ${outDir}`)
+                    await onBuild?.()
+                }
             } catch (error) {
                 logger.error(error)
             }
@@ -199,6 +183,51 @@ dev.node = async (
     } finally {
         lifecycle.abort()
         await watcher.close()
+    }
+}
+
+export const devWithStorybook = async (
+    entry: string,
+    outDir: string,
+    storybook: StorybookConfig,
+    host: string | undefined,
+    port: number | undefined,
+    plugins: WebAnvilPlugin[] = [],
+    options: NodeBuildOptions = {},
+    rolldownConfig: RolldownConfig = {},
+    toolchain = new Toolchain(process.cwd()),
+    waitForTermination: () => Promise<void> = untilTerminated
+): Promise<void> => {
+    let stopNodeWatcher = (): void => {}
+    const nodeStopped = new Promise<void>((resolve) => {
+        stopNodeWatcher = resolve
+    })
+    let initialBuild: () => void = () => {}
+    const built = new Promise<void>((resolve) => {
+        initialBuild = resolve
+    })
+    const node = dev.node(entry, outDir, plugins, () => nodeStopped, options, rolldownConfig, toolchain, initialBuild)
+    let storybookProcess: StorybookProcess | undefined
+    try {
+        await Promise.race([built, node])
+        storybookProcess = await startStorybook(
+            "dev",
+            storybook,
+            {
+                host: host ?? storybook.host,
+                port: port ?? storybook.port
+            },
+            toolchain
+        )
+        const result = await Promise.race([
+            waitForTermination().then(() => "terminated" as const),
+            storybookProcess.completed.then(() => "storybook" as const)
+        ])
+        if (result === "storybook") throw new Error("Storybook development stopped")
+    } finally {
+        stopNodeWatcher()
+        storybookProcess?.stop()
+        await Promise.allSettled([node, ...(storybookProcess === undefined ? [] : [storybookProcess.completed])])
     }
 }
 
@@ -224,10 +253,6 @@ const commandRun = (toolchain: Toolchain) =>
             resolvedConfig,
             explicit
         ) => {
-            if (mode === "storybook") {
-                assertStorybookArguments(explicit)
-                return runStorybook("dev", resolvedConfig.storybook, { host, port }, toolchain)
-            }
             if (explicit.bundle && explicit["no-bundle"]) {
                 throw new Error("--bundle and --no-bundle cannot be used together")
             }
@@ -254,6 +279,20 @@ const commandRun = (toolchain: Toolchain) =>
             const executableMode = effective.mode
             if (executableMode !== "web" && executableMode !== "node")
                 throw new Error("Expected a web or Node build mode")
+
+            if (resolvedConfig.storybook !== undefined) {
+                return devWithStorybook(
+                    effective.entry!,
+                    effective.outDir!,
+                    resolvedConfig.storybook,
+                    explicit.host === undefined ? undefined : host,
+                    explicit.port === undefined ? undefined : port,
+                    resolvedConfig.plugins ?? [],
+                    effective,
+                    resolvedConfig.rolldown,
+                    toolchain
+                )
+            }
 
             return dev(
                 executableMode,
@@ -289,11 +328,11 @@ export default defineCommand({
         target
     ],
     run: async (arguments_) => {
-        const config = arguments_.mode === undefined ? (await loadConfig()).config : undefined
-        const selectedMode = arguments_.mode ?? config?.build?.mode
+        const configured = arguments_.mode === undefined ? (await loadConfig()).config : undefined
         const toolchain = new Toolchain(process.cwd())
-        if (selectedMode === "storybook") await toolchain.resolve("storybook")
-        else await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
+        await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
+        const config = configured ?? (await loadConfig()).config
+        if (config.storybook !== undefined) await toolchain.resolve("storybook")
         return commandRun(toolchain)(arguments_, config)
     }
 })

@@ -52,7 +52,7 @@ const nativeConfigSchema = <T extends object>() =>
 
 export const buildConfigSchema = z.strictObject({
     bundle: z.boolean().optional(),
-    mode: z.enum(["web", "node", "storybook"]).optional(),
+    mode: z.enum(["web", "node"]).optional(),
     entry: z.string().min(1).optional(),
     entries: z.record(z.string().min(1), z.string().min(1)).optional(),
     outDir: z.string().min(1).optional(),
@@ -90,7 +90,10 @@ export const viteConfigSchema = nativeConfigSchema<ViteUserConfig>()
 
 export const storybookConfigSchema = z.strictObject({
     configDir: z.string().min(1).optional(),
+    framework: z.enum(["react", "svelte", "vue", "web-components"]).optional(),
+    host: z.string().min(1).optional(),
     outDir: z.string().min(1).optional(),
+    port: z.number().int().min(1).max(65_535).optional(),
     test: z.boolean().optional()
 })
 
@@ -138,6 +141,23 @@ export const effectiveUserConfigSchema = userConfigSchema.superRefine((config, c
                     message: NODE_PLUGIN_ERROR
                 })
             }
+        }
+    }
+
+    if (config.storybook !== undefined) {
+        if (build.mode !== "node") {
+            context.addIssue({
+                code: "custom",
+                path: ["storybook"],
+                message: 'storybook is available for Node projects; set build.mode to "node"'
+            })
+        }
+        if (config.storybook.framework === undefined) {
+            context.addIssue({
+                code: "custom",
+                path: ["storybook", "framework"],
+                message: "storybook.framework selects the Storybook framework adapter"
+            })
         }
     }
 })
