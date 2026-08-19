@@ -8,6 +8,6 @@ export const withProjectVitePlugins = async (config: InlineConfig): Promise<Inli
 
     return {
         ...config,
-        plugins: [...(config.plugins ?? []), ...resolveVitePlugins(webanvilConfig.plugins ?? [])]
+        plugins: [...resolveVitePlugins(webanvilConfig.plugins ?? []), ...(config.plugins ?? [])]
     }
 }

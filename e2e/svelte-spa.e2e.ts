@@ -30,5 +30,11 @@ describe("svelte-spa", () => {
             await expect(access(join(output, "index.html"))).resolves.toBeUndefined()
             await expect(readFile(join(output, "assets", script), "utf8")).resolves.toContain("WebAnvil Svelte SPA")
         }, 60_000)
+
+        it("builds Svelte stories with the documented Storybook adapter", async () => {
+            const output = await webanvil.build(example, "storybook-static", "--mode", "storybook")
+
+            await expect(access(join(output, "index.html"))).resolves.toBeUndefined()
+        }, 60_000)
     })
 })
