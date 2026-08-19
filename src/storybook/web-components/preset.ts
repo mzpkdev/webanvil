@@ -10,4 +10,7 @@ const testAddon = resolve(fileURLToPath(new URL("..", import.meta.url)), "test")
 
 export const addons = [testAddon]
 
-export const viteFinal = withProjectVitePlugins
+export const viteFinal = async (
+    config: Parameters<typeof withProjectVitePlugins>[0],
+    options: { configDir?: string }
+) => withProjectVitePlugins(config, options.configDir)

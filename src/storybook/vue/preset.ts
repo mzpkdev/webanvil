@@ -14,4 +14,4 @@ const testAddon = resolve(fileURLToPath(new URL("..", import.meta.url)), "test")
 export const addons = [testAddon]
 
 export const viteFinal = async (...arguments_: Parameters<typeof storybookViteFinal>) =>
-    storybookViteFinal(await withProjectVitePlugins(arguments_[0]), arguments_[1])
+    storybookViteFinal(await withProjectVitePlugins(arguments_[0], arguments_[1]?.configDir), arguments_[1])

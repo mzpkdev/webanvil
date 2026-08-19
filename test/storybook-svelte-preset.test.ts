@@ -27,9 +27,9 @@ describe("Svelte Storybook preset", () => {
         vi.mocked(storybookViteFinal).mockResolvedValue(storybookConfig)
         vi.mocked(withProjectVitePlugins).mockResolvedValue(finalConfig)
 
-        await expect(viteFinal(initialConfig, {} as never)).resolves.toBe(finalConfig)
+        await expect(viteFinal(initialConfig, { configDir: "configs/storybook" } as never)).resolves.toBe(finalConfig)
 
-        expect(storybookViteFinal).toHaveBeenCalledWith(initialConfig, {})
-        expect(withProjectVitePlugins).toHaveBeenCalledWith(storybookConfig)
+        expect(storybookViteFinal).toHaveBeenCalledWith(initialConfig, { configDir: "configs/storybook" })
+        expect(withProjectVitePlugins).toHaveBeenCalledWith(storybookConfig, "configs/storybook")
     })
 })
