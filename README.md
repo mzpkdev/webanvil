@@ -317,6 +317,15 @@ export default defineConfig({
 })
 ```
 
+For a new WebAnvil project, keep Oxfmt and Oxlint settings in the `format` and
+`lint` blocks. `wa format`, `wa lint`, and `wa check` pass those options to the
+matching Oxc tool, so you do not need to create `.oxfmtrc.json` or
+`.oxlintrc.json`.
+
+Keep a native Oxc config when you are adopting an existing project configuration
+or need Oxc's native configuration lookup. A native Oxc config takes precedence
+over the matching WebAnvil block.
+
 ### Tool selection
 
 WebAnvil selects compatible project and workspace declarations before its own
@@ -520,7 +529,7 @@ Your existing configuration stays in charge. A `vite.config.*` or
 `.oxfmtrc.json` and `.oxlintrc.json` do the same for Oxc. Explicit CLI values
 remain the final run-specific override.
 
-That lets a project standardize on `wa` now and move settings into `webanvil.config.ts` later, one part at a time. Start with a build entry when it makes sense, then bring over test, lint, or format settings as you touch them.
+That lets a project standardize on `wa` now and move settings into `webanvil.config.ts` later, one part at a time. New WebAnvil projects should keep Oxfmt and Oxlint settings in the `format` and `lint` blocks; move existing native Oxc configuration there when it makes sense.
 
 Command reference
 -----------------
