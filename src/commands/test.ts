@@ -5,7 +5,7 @@ import { hasStorybookConfig, hasToolConfig } from "../config-files"
 import { type StorybookConfig, type TestConfig, withConfig } from "../config"
 import { createStorybookTestProject } from "../core/storybook"
 import { untilTerminated } from "../core/until-terminated"
-import { useTool, useToolApi } from "../core/use-tool"
+import { useTool } from "../core/use-tool"
 import { coverage, environment, ui, uiPort, watch } from "../options"
 import { logger } from "../tools"
 
@@ -27,7 +27,8 @@ export const test = async (
     logger.start("Running tests")
     const hasVitestConfig = await hasToolConfig("vitest")
     const persistent = options.watch === true || options.ui === true
-    const { startVitest } = await useToolApi<typeof import("vitest/node")>("vitest", "node")
+    const vitestTool = await useTool("vitest")
+    const { startVitest } = await vitestTool.import<typeof import("vitest/node")>("node")
     const nativeConfig = hasVitestConfig ? {} : config
     const nativeCoverage =
         typeof nativeConfig.coverage === "object" && nativeConfig.coverage !== null ? nativeConfig.coverage : {}
@@ -35,7 +36,7 @@ export const test = async (
     const storybookProject =
         storybook.test === false || !(await hasStorybookConfig(storybook.configDir))
             ? undefined
-            : await createStorybookTestProject(storybook)
+            : await createStorybookTestProject(storybook, vitestTool.version)
     const vitest = await startVitest("test", filters, {
         ...nativeConfig,
         ...(storybookProject === undefined ? {} : { projects: [...(nativeConfig.projects ?? []), storybookProject] }),

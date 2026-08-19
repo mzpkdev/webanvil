@@ -197,7 +197,8 @@ The build writes to `storybook-static` unless `storybook.outDir` in
 automatically runs Storybook stories, including `play` functions, when it finds
 `.storybook/main.*`. Set `storybook.test: false` to exclude them. Chromium is
 downloaded by `@playwright/browser-chromium` when your package manager runs
-install scripts.
+install scripts. If the project declares Vitest, Storybook tests require
+version `4.1.10` to match the bundled browser provider.
 
 ### A Node project
 

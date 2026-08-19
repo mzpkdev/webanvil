@@ -8,6 +8,7 @@ import { Toolchain } from "./toolchain"
 import { useToolExecutable } from "./use-tool"
 
 type StorybookAction = "build" | "dev"
+const storybookVitestVersion = "4.1.10"
 
 type StorybookRunOptions = {
     configDir?: string
@@ -44,8 +45,14 @@ export const runStorybook = async (
 }
 
 export const createStorybookTestProject = async (
-    config: StorybookConfig = {}
+    config: StorybookConfig = {},
+    vitestVersion = storybookVitestVersion
 ): Promise<TestProjectInlineConfiguration> => {
+    if (vitestVersion !== storybookVitestVersion) {
+        throw new Error(
+            `Storybook tests require Vitest ${storybookVitestVersion}; Webanvil bundles @vitest/browser-playwright ${storybookVitestVersion}`
+        )
+    }
     const previousVitest = process.env.VITEST
     process.env.VITEST = "true"
     let plugins: Awaited<ReturnType<typeof storybookTest>>

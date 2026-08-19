@@ -152,7 +152,7 @@ describe("test", () => {
 
         await test([], {}, {}, undefined, { configDir: ".storybook" })
 
-        expect(createStorybookTestProject).toHaveBeenCalledWith({ configDir: ".storybook" })
+        expect(createStorybookTestProject).toHaveBeenCalledWith({ configDir: ".storybook" }, "4.1.10")
         expect(startVitest).toHaveBeenCalledWith(
             "test",
             [],

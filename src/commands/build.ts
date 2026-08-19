@@ -10,6 +10,7 @@ import {
     assertSyntaxTarget,
     type BuildConfig,
     type CopyMapping,
+    loadConfig,
     type RolldownConfig,
     resolveEffectiveBuildConfig,
     withConfig
@@ -279,9 +280,11 @@ export default defineCommand({
     arguments: [entry],
     options: [mode, outDir, bundle, noBundle, copy, declaration, sourcemap, minify, formats, platform, target],
     run: async (arguments_) => {
+        const preloadedConfig = arguments_.mode === undefined ? (await loadConfig()).config : undefined
+        const selectedMode = arguments_.mode ?? preloadedConfig?.build?.mode
         const toolchain = new Toolchain(process.cwd())
-        if (arguments_.mode === "storybook") await toolchain.resolve("storybook")
+        if (selectedMode === "storybook") await toolchain.resolve("storybook")
         else await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
-        return commandRun(toolchain)(arguments_)
+        return commandRun(toolchain)(arguments_, preloadedConfig)
     }
 })
