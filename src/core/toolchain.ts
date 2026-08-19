@@ -19,10 +19,12 @@ export type ToolName =
     | "storybook"
     | "typescript"
     | "typescript-native"
+export type OptionalToolName = "svelte-check"
+type AnyToolName = ToolName | OptionalToolName
 export type ToolSource = "project" | "webanvil"
 
 export type ResolvedTool = {
-    name: ToolName
+    name: AnyToolName
     packageName: string
     version: string
     source: ToolSource
@@ -51,6 +53,10 @@ export const supportedTools = {
         bin: "tsgo"
     }
 } as const satisfies Record<ToolName, ToolDefinition>
+
+export const optionalTools = {
+    "svelte-check": { packageName: "svelte-check", range: ">=4 <5", bin: "svelte-check" }
+} as const satisfies Record<OptionalToolName, ToolDefinition>
 
 type PackageManifest = {
     name?: unknown
@@ -303,7 +309,7 @@ const resolveExecutable = async (
 }
 
 const loadResolvedTool = async (
-    name: ToolName,
+    name: AnyToolName,
     definition: ToolDefinition,
     anchor: string,
     source: ToolSource
@@ -366,6 +372,7 @@ const loadResolvedTool = async (
 export class Toolchain {
     readonly cwd: string
     readonly #tools = new Map<ToolName, Promise<ResolvedTool>>()
+    readonly #optionalTools = new Map<OptionalToolName, Promise<ResolvedTool | undefined>>()
 
     constructor(cwd = process.cwd()) {
         this.cwd = resolve(cwd)
@@ -380,6 +387,15 @@ export class Toolchain {
         return selected
     }
 
+    resolveOptional(name: OptionalToolName): Promise<ResolvedTool | undefined> {
+        const existing = this.#optionalTools.get(name)
+        if (existing !== undefined) return existing
+
+        const selected = this.#resolveOptional(name)
+        this.#optionalTools.set(name, selected)
+        return selected
+    }
+
     async #resolve(name: ToolName): Promise<ResolvedTool> {
         const definition: ToolDefinition = supportedTools[name]
         const declaration = await findDeclaration(this.cwd, definition.packageName)
@@ -389,9 +405,19 @@ export class Toolchain {
         const webanvilPackageRoot = dirname(await findContainingManifest(fileURLToPath(import.meta.url)))
         return loadResolvedTool(name, definition, webanvilPackageRoot, "webanvil")
     }
+
+    async #resolveOptional(name: OptionalToolName): Promise<ResolvedTool | undefined> {
+        const definition: ToolDefinition = optionalTools[name]
+        const declaration = await findDeclaration(this.cwd, definition.packageName)
+        if (declaration === undefined) return
+        return loadResolvedTool(name, definition, declaration.directory, "project")
+    }
 }
 
 export const resolveTool = (name: ToolName, cwd = process.cwd()): Promise<ResolvedTool> =>
     new Toolchain(cwd).resolve(name)
+
+export const resolveOptionalTool = (name: OptionalToolName, cwd = process.cwd()): Promise<ResolvedTool | undefined> =>
+    new Toolchain(cwd).resolveOptional(name)
 
 export const formatResolvedTool = (tool: ResolvedTool): string => `${tool.packageName} ${tool.version} (${tool.source})`

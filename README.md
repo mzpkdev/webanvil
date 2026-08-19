@@ -56,17 +56,17 @@ wa typecheck   # type-check the project
 What it includes
 ----------------
 
-| Project job                | WebAnvil command                   | Tool                             |
-| -------------------------- | ---------------------------------- | -------------------------------- |
-| Web builds and development | `wa build`, `wa dev`, `wa preview` | Vite                             |
-| Node builds and watch mode | `wa build`, `wa dev`               | Rolldown                         |
-| Design-system Storybook    | `wa build`, `wa dev`, `wa preview` | Storybook                        |
-| Tracked output cleanup     | `wa clean`                         | WebAnvil                         |
-| Static checks              | `wa check`                         | Oxfmt, Oxlint, TypeScript Native |
-| Tests                      | `wa test`                          | Vitest                           |
-| Linting                    | `wa lint`                          | Oxlint                           |
-| Formatting                 | `wa format`                        | Oxfmt                            |
-| Type checking              | `wa typecheck`                     | TypeScript Native                |
+| Project job                | WebAnvil command                   | Tool                                              |
+| -------------------------- | ---------------------------------- | ------------------------------------------------- |
+| Web builds and development | `wa build`, `wa dev`, `wa preview` | Vite                                              |
+| Node builds and watch mode | `wa build`, `wa dev`               | Rolldown                                          |
+| Design-system Storybook    | `wa build`, `wa dev`, `wa preview` | Storybook                                         |
+| Tracked output cleanup     | `wa clean`                         | WebAnvil                                          |
+| Static checks              | `wa check`                         | Oxfmt, Oxlint, TypeScript Native, or svelte-check |
+| Tests                      | `wa test`                          | Vitest                                            |
+| Linting                    | `wa lint`                          | Oxlint                                            |
+| Formatting                 | `wa format`                        | Oxfmt                                             |
+| Type checking              | `wa typecheck`                     | TypeScript Native or svelte-check                 |
 
 Getting started
 ---------------
@@ -123,6 +123,12 @@ npm run typecheck
 first failure. It is read-only by default. Use `wa check --fix` to format files
 and apply safe lint fixes before type checking. Tests stay separate under
 `wa test`.
+
+For a Svelte project, add `svelte-check` to the package's `devDependencies`.
+Then `wa typecheck` and `wa check` use it for project-wide diagnostics through
+the package's `tsconfig.json`. WebAnvil otherwise uses TypeScript Native.
+Explicit file paths such as `wa typecheck src/file.ts` always use TypeScript
+Native because `svelte-check` checks a project rather than individual files.
 
 ### A web app
 

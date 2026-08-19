@@ -6,7 +6,7 @@ import { isAbsolute, join, relative, resolve } from "pathe"
 import { hasOxcConfig } from "../config-files"
 import { useToolExecutable } from "./use-tool"
 
-type Tool = "oxfmt" | "oxlint" | "tsgo"
+type Tool = "oxfmt" | "oxlint" | "tsgo" | "svelte-check"
 
 type JsonConfig = Record<string, unknown>
 
@@ -108,7 +108,7 @@ const rebaseOxlintConfig = (config: JsonConfig, cwd: string, configDirectory: st
 })
 
 export const runTool = async (name: Tool, arguments_: string[], config?: object): Promise<void> => {
-    if (name !== "tsgo" && (await hasOxcConfig(name))) config = undefined
+    if ((name === "oxfmt" || name === "oxlint") && (await hasOxcConfig(name))) config = undefined
 
     const executable = await useToolExecutable(name === "tsgo" ? "typescript-native" : name)
     const cwd = process.cwd()
@@ -135,7 +135,7 @@ export const runTool = async (name: Tool, arguments_: string[], config?: object)
             : ignorePatterns.flatMap((pattern) => ["--ignore-pattern", pattern])
     const internalIgnoreArguments = name === "oxfmt" ? ["!**/.webanvil/**"] : ["--ignore-pattern", ".webanvil/**"]
     const toolArguments =
-        name === "tsgo"
+        name === "tsgo" || name === "svelte-check"
             ? arguments_
             : [
                   ...(configPath === undefined ? [] : ["--config", configPath]),

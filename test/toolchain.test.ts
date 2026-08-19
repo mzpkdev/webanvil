@@ -6,7 +6,15 @@ import { execute } from "cmdore"
 import { afterEach, describe, describe as context, expect, it } from "vitest"
 
 import formatCommand from "../src/commands/format"
-import { Toolchain, formatResolvedTool, resolveTool, supportedTools, type ToolName } from "../src/core/toolchain"
+import {
+    Toolchain,
+    formatResolvedTool,
+    optionalTools,
+    resolveOptionalTool,
+    resolveTool,
+    supportedTools,
+    type ToolName
+} from "../src/core/toolchain"
 
 const directories: string[] = []
 const initialDirectory = process.cwd()
@@ -362,6 +370,66 @@ describe("Toolchain", () => {
             })
         ).rejects.toThrow("incompatible with WebAnvil")
         await expect(access(join(directory, "config-loaded.txt"))).rejects.toThrow()
+    })
+})
+
+describe("optional tools", () => {
+    it("uses a declared svelte-check package", async () => {
+        const directory = await createDirectory()
+        await declareTool(directory, "svelte-check")
+        const packageRoot = await installFakePackage(directory, "svelte-check", {
+            version: "4.0.0",
+            bin: "svelte-check"
+        })
+
+        await expect(resolveOptionalTool("svelte-check", directory)).resolves.toMatchObject({
+            name: "svelte-check",
+            packageRoot,
+            source: "project"
+        })
+    })
+
+    it("uses a workspace declaration for a member package", async () => {
+        const workspace = await createDirectory()
+        const project = join(workspace, "packages", "app")
+        await mkdir(project, { recursive: true })
+        await declareTool(workspace, "svelte-check", "devDependencies", ["packages/*"])
+        await writeJson(join(project, "package.json"), { name: "app" })
+        const packageRoot = await installFakePackage(workspace, "svelte-check", {
+            version: "4.0.0",
+            bin: "svelte-check"
+        })
+
+        await expect(resolveOptionalTool("svelte-check", project)).resolves.toMatchObject({ packageRoot })
+    })
+
+    it("ignores an undeclared hoisted svelte-check package", async () => {
+        const directory = await createDirectory()
+        await writeJson(join(directory, "package.json"), { name: "app" })
+        await installFakePackage(directory, "svelte-check", { version: "4.0.0", bin: "svelte-check" })
+
+        await expect(resolveOptionalTool("svelte-check", directory)).resolves.toBeUndefined()
+    })
+
+    it("rejects a declared svelte-check package that is not installed", async () => {
+        const directory = await createDirectory()
+        await declareTool(directory, "svelte-check")
+
+        await expect(resolveOptionalTool("svelte-check", directory)).rejects.toThrow(
+            /svelte-check is declared by .*package\.json but is not installed/
+        )
+    })
+
+    it("rejects an incompatible declared svelte-check package", async () => {
+        const directory = await createDirectory()
+        const definition = optionalTools["svelte-check"]
+        await declareTool(directory, definition.packageName)
+        await installFakePackage(directory, definition.packageName, {
+            version: "5.0.0",
+            bin: definition.bin
+        })
+
+        await expect(resolveOptionalTool("svelte-check", directory)).rejects.toThrow("is incompatible with WebAnvil")
     })
 })
 
