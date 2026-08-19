@@ -88,6 +88,12 @@ export const rolldownConfigSchema = nativeConfigSchema<RolldownConfig>()
 export const testConfigSchema = nativeConfigSchema<TestUserConfig>()
 export const viteConfigSchema = nativeConfigSchema<ViteUserConfig>()
 
+export const storybookConfigSchema = z.strictObject({
+    configDir: z.string().min(1).optional(),
+    outDir: z.string().min(1).optional(),
+    test: z.boolean().optional()
+})
+
 const pluginSchema = z.custom<WebAnvilPlugin>(
     isWebAnvilPlugin,
     "Expected a Vite plugin or a WebAnvil plugin created with definePlugin()"
@@ -98,6 +104,7 @@ export const userConfigSchema = z.strictObject({
     format: formatConfigSchema.optional(),
     lint: lintConfigSchema.optional(),
     rolldown: rolldownConfigSchema.optional(),
+    storybook: storybookConfigSchema.optional(),
     test: testConfigSchema.optional(),
     vite: viteConfigSchema.optional(),
     plugins: z.array(pluginSchema).optional()
@@ -140,6 +147,7 @@ export type CopyMapping = z.infer<typeof copyMappingSchema>
 export type FormatConfig = OxfmtConfig
 export type TestConfig = TestUserConfig
 export type ViteConfig = ViteUserConfig
+export type StorybookConfig = z.infer<typeof storybookConfigSchema>
 export type UserConfig = z.infer<typeof userConfigSchema>
 export type UserConfigFactory = () => UserConfig | Promise<UserConfig>
 export type ConfigExport = UserConfig | UserConfigFactory
@@ -150,7 +158,7 @@ export type ResolvedConfig = {
 }
 
 type CommandArguments = Record<string, unknown>
-type ConfigSection = BuildConfig | FormatConfig | LintConfig | TestConfig
+type ConfigSection = BuildConfig | FormatConfig | LintConfig | StorybookConfig | TestConfig
 type ResolvedArguments<TArguments extends CommandArguments> = {
     [TKey in keyof TArguments]-?: Exclude<TArguments[TKey], undefined>
 }

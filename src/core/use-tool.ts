@@ -21,10 +21,7 @@ export const useToolApi = async <T>(
     toolchain = new Toolchain(process.cwd())
 ): Promise<T> => (await useTool(name, toolchain)).import<T>(subpath)
 
-export const useToolExecutable = async (
-    name: Extract<ToolName, "oxfmt" | "oxlint" | "typescript-native">,
-    toolchain = new Toolchain(process.cwd())
-): Promise<string> => {
+export const useToolExecutable = async (name: ToolName, toolchain = new Toolchain(process.cwd())): Promise<string> => {
     const tool = await useTool(name, toolchain)
     if (tool.executable === undefined) throw new Error(`${tool.packageName} does not expose an executable`)
     return tool.executable

@@ -23,6 +23,7 @@ Table of contents
     - [Install](#install)
     - [Everyday commands](#everyday-commands)
     - [A web app](#a-web-app)
+    - [Storybook](#storybook)
     - [A Node project](#a-node-project)
 - [Configuration](#configuration)
     - [Tool selection](#tool-selection)
@@ -55,16 +56,17 @@ wa typecheck   # type-check the project
 What it includes
 ----------------
 
-| Project job                | WebAnvil command                   | Tool                             |
-| -------------------------- | ---------------------------------- | -------------------------------- |
-| Web builds and development | `wa build`, `wa dev`, `wa preview` | Vite                             |
-| Node builds and watch mode | `wa build`, `wa dev`               | Rolldown                         |
-| Tracked output cleanup     | `wa clean`                         | WebAnvil                         |
-| Static checks              | `wa check`                         | Oxfmt, Oxlint, TypeScript Native |
-| Tests                      | `wa test`                          | Vitest                           |
-| Linting                    | `wa lint`                          | Oxlint                           |
-| Formatting                 | `wa format`                        | Oxfmt                            |
-| Type checking              | `wa typecheck`                     | TypeScript Native                |
+| Project job                | WebAnvil command                                       | Tool                             |
+| -------------------------- | ------------------------------------------------------ | -------------------------------- |
+| Web builds and development | `wa build`, `wa dev`, `wa preview`                     | Vite                             |
+| Node builds and watch mode | `wa build`, `wa dev`                                   | Rolldown                         |
+| Storybook development      | `wa build --mode storybook`, `wa dev --mode storybook` | Storybook                        |
+| Tracked output cleanup     | `wa clean`                                             | WebAnvil                         |
+| Static checks              | `wa check`                                             | Oxfmt, Oxlint, TypeScript Native |
+| Tests                      | `wa test`                                              | Vitest                           |
+| Linting                    | `wa lint`                                              | Oxlint                           |
+| Formatting                 | `wa format`                                            | Oxfmt                            |
+| Type checking              | `wa typecheck`                                         | TypeScript Native                |
 
 Getting started
 ---------------
@@ -150,6 +152,41 @@ export default defineConfig({
     plugins: [react()]
 })
 ```
+
+### Storybook
+
+WebAnvil includes Storybook, the supported Vite framework adapters, Vitest's
+browser support, and Chromium. Add only a Storybook configuration and your
+project's normal framework dependencies.
+
+For example, a Svelte project can use this `.storybook/main.ts`:
+
+```ts
+import { framework, type StorybookConfig } from "webanvil/storybook/svelte"
+
+export default {
+    framework,
+    stories: ["../src/**/*.stories.@(js|ts|svelte)"]
+} satisfies StorybookConfig
+```
+
+Use `webanvil/storybook/react`, `webanvil/storybook/vue`, or
+`webanvil/storybook/web-components` for those frameworks. The WebAnvil wrapper
+uses the framework plugins already declared in `webanvil.config.*`.
+
+Run Storybook through the normal commands:
+
+```sh
+wa dev --mode storybook
+wa build --mode storybook
+```
+
+The build writes to `storybook-static` unless `storybook.outDir` in
+`webanvil.config.*` or `--out-dir` selects another directory. `wa test`
+automatically runs Storybook stories, including `play` functions, when it finds
+`.storybook/main.*`. Set `storybook.test: false` to exclude them. Chromium is
+downloaded by `@playwright/browser-chromium` when your package manager runs
+install scripts.
 
 ### A Node project
 
@@ -280,6 +317,7 @@ invalid package identity, or is outside the supported range fails first.
 | -------------------------- | ------------------------------------ | ----------------------- |
 | Vite                       | `>=8.1.5 <9`                         | `8.1.5`                 |
 | Vitest                     | `>=4.1.10 <5`                        | `4.1.10`                |
+| Storybook                  | `>=10.5.9 <11`                       | `10.5.9`                |
 | Rolldown                   | `>=1.2.0 <2`                         | `1.2.0`                 |
 | Oxlint                     | `>=1.75.0 <2`                        | `1.75.0`                |
 | Oxfmt                      | `>=0.60.0 <0.61`                     | `0.60.0`                |
@@ -477,10 +515,10 @@ Command reference
 
 | Command                   | Description                                                           | Options                                                                                                                                                           |
 | ------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode.                | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`                     |
+| `wa build [entry]`        | Builds with Vite in web mode, Rolldown in Node mode, or Storybook.    | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`                     |
 | `wa clean`                | Removes files emitted by prior WebAnvil builds.                       | No options                                                                                                                                                        |
 | `wa check`                | Checks formatting, linting, and types, stopping on the first failure. | `--fix`                                                                                                                                                           |
-| `wa dev [entry]`          | Starts a Vite server or a full Node build watcher.                    | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target` |
+| `wa dev [entry]`          | Starts Vite, a Node build watcher, or Storybook.                      | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target` |
 | `wa preview`              | Serves a Vite production build.                                       | `--out-dir`, `--host`, `--port`, `--open`                                                                                                                         |
 | `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                                                     |
 | `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                          | `--fix`                                                                                                                                                           |

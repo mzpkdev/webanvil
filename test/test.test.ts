@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -6,8 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { startVitest } from "vitest/node"
 
 import { test } from "../src/commands/test"
+import { createStorybookTestProject } from "../src/core/storybook"
 
 vi.mock("vitest/node", () => ({ startVitest: vi.fn() }))
+vi.mock("../src/core/storybook", () => ({ createStorybookTestProject: vi.fn() }))
 
 const directories: string[] = []
 const initialDirectory = process.cwd()
@@ -29,6 +31,8 @@ const createVitest = () => ({
 beforeEach(() => {
     vi.mocked(startVitest).mockReset()
     vi.mocked(startVitest).mockResolvedValue(createVitest() as never)
+    vi.mocked(createStorybookTestProject).mockReset()
+    vi.mocked(createStorybookTestProject).mockResolvedValue({ extends: true, test: { name: "storybook" } })
 })
 
 afterEach(async () => {
@@ -138,5 +142,32 @@ describe("test", () => {
         await test([], { environment: "happy-dom" }, { environment: "jsdom" })
 
         expect(startVitest).toHaveBeenCalledWith("test", [], expect.objectContaining({ environment: "jsdom" }))
+    })
+
+    it("runs Storybook stories when a Storybook config is present", async () => {
+        const directory = await createDirectory()
+        await mkdir(join(directory, ".storybook"))
+        await writeFile(join(directory, ".storybook", "main.ts"), "export default {}")
+        process.chdir(directory)
+
+        await test([], {}, {}, undefined, { configDir: ".storybook" })
+
+        expect(createStorybookTestProject).toHaveBeenCalledWith({ configDir: ".storybook" })
+        expect(startVitest).toHaveBeenCalledWith(
+            "test",
+            [],
+            expect.objectContaining({ projects: [{ extends: true, test: { name: "storybook" } }] })
+        )
+    })
+
+    it("allows Storybook tests to be disabled in WebAnvil config", async () => {
+        const directory = await createDirectory()
+        await mkdir(join(directory, ".storybook"))
+        await writeFile(join(directory, ".storybook", "main.ts"), "export default {}")
+        process.chdir(directory)
+
+        await test([], {}, {}, undefined, { test: false })
+
+        expect(createStorybookTestProject).not.toHaveBeenCalled()
     })
 })

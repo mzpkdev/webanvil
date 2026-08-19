@@ -16,6 +16,7 @@ import {
 } from "../config"
 import { removeOutputsIn, writeBuildInfo } from "../core/build-info"
 import { createNodeBuildPlan, type NodeBuildOptions, runNodeBuild } from "../core/node-build"
+import { runStorybook, storybookOutputDir } from "../core/storybook"
 import { assertStaticCopyDestinationsAvailable, copyStaticFiles, planStaticCopies } from "../core/static-copy"
 import { Toolchain } from "../core/toolchain"
 import { useToolApi } from "../core/use-tool"
@@ -35,7 +36,7 @@ type BuildCommandArguments = {
     entry?: string
     formats?: Array<"esm" | "cjs">
     minify?: boolean
-    mode?: "web" | "node"
+    mode?: "web" | "node" | "storybook"
     "no-bundle"?: boolean
     "out-dir"?: string
     platform?: "node" | "browser" | "neutral"
@@ -47,6 +48,26 @@ const noBundle = defineOption({
     description: "Emit the reachable Node graph with preserveModules, overriding configuration that enables bundling.",
     arity: 0
 })
+
+const assertStorybookArguments = (explicit: BuildCommandArguments): void => {
+    const incompatible = [
+        "bundle",
+        "copy",
+        "declaration",
+        "entry",
+        "formats",
+        "minify",
+        "no-bundle",
+        "platform",
+        "sourcemap",
+        "target"
+    ] as const
+    const option = incompatible.find((name) => {
+        const value = explicit[name]
+        return name === "bundle" || name === "no-bundle" ? value === true : value !== undefined
+    })
+    if (option !== undefined) throw new Error(`--${option} is not available in Storybook mode`)
+}
 type WebBuild = {
     config: InlineConfig
     emptyOutDir: boolean
@@ -191,10 +212,26 @@ const commandRun = (toolchain: Toolchain) =>
             resolvedConfig,
             explicit
         ) => {
+            if (explicit.mode === "storybook") {
+                assertStorybookArguments(explicit)
+                const storybookOptions = { outDir: explicit["out-dir"] === undefined ? undefined : outDir }
+                const outputDirectory = storybookOutputDir(resolvedConfig.storybook, storybookOptions)
+                return (async () => {
+                    const existing = await removeOutputsIn(outputDirectory)
+                    await runStorybook("build", resolvedConfig.storybook, storybookOptions, toolchain)
+                    const output = await glob("**/*", {
+                        cwd: resolve(process.cwd(), outputDirectory),
+                        dot: true,
+                        onlyFiles: true
+                    })
+                    await writeBuildInfo([...existing.output, ...output.map((file) => resolve(outputDirectory, file))])
+                })()
+            }
             if (explicit.bundle && explicit["no-bundle"]) {
                 throw new Error("--bundle and --no-bundle cannot be used together")
             }
             const effectiveBundle = explicit["no-bundle"] ? false : explicit.bundle ? true : buildConfig.bundle
+            const effectiveMode = mode === "storybook" ? undefined : mode
             const effective = resolveEffectiveBuildConfig(
                 resolvedConfig,
                 {
@@ -205,7 +242,7 @@ const commandRun = (toolchain: Toolchain) =>
                     entry,
                     formats,
                     minify,
-                    mode,
+                    mode: effectiveMode,
                     outDir,
                     platform,
                     sourcemap,
@@ -240,7 +277,8 @@ export default defineCommand({
     options: [mode, outDir, bundle, noBundle, copy, declaration, sourcemap, minify, formats, platform, target],
     run: async (arguments_) => {
         const toolchain = new Toolchain(process.cwd())
-        await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
+        if (arguments_.mode === "storybook") await toolchain.resolve("storybook")
+        else await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
         return commandRun(toolchain)(arguments_)
     }
 })

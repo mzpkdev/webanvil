@@ -10,7 +10,15 @@ const { satisfies } = createRequire(import.meta.url)("semver") as {
     satisfies(version: string, range: string): boolean
 }
 
-export type ToolName = "vite" | "vitest" | "rolldown" | "oxlint" | "oxfmt" | "typescript" | "typescript-native"
+export type ToolName =
+    | "vite"
+    | "vitest"
+    | "rolldown"
+    | "oxlint"
+    | "oxfmt"
+    | "storybook"
+    | "typescript"
+    | "typescript-native"
 export type ToolSource = "project" | "webanvil"
 
 export type ResolvedTool = {
@@ -32,6 +40,7 @@ type ToolDefinition = {
 export const supportedTools = {
     vite: { packageName: "vite", range: ">=8.1.5 <9" },
     vitest: { packageName: "vitest", range: ">=4.1.10 <5" },
+    storybook: { packageName: "storybook", range: ">=10.5.9 <11", bin: "storybook" },
     rolldown: { packageName: "rolldown", range: ">=1.2.0 <2" },
     oxlint: { packageName: "oxlint", range: ">=1.75.0 <2", bin: "oxlint" },
     oxfmt: { packageName: "oxfmt", range: ">=0.60.0 <0.61", bin: "oxfmt" },

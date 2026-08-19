@@ -1,8 +1,9 @@
 import { defineCommand } from "cmdore"
 
 import { filters } from "../arguments"
-import { hasToolConfig } from "../config-files"
-import { type TestConfig, withConfig } from "../config"
+import { hasStorybookConfig, hasToolConfig } from "../config-files"
+import { type StorybookConfig, type TestConfig, withConfig } from "../config"
+import { createStorybookTestProject } from "../core/storybook"
 import { untilTerminated } from "../core/until-terminated"
 import { useTool, useToolApi } from "../core/use-tool"
 import { coverage, environment, ui, uiPort, watch } from "../options"
@@ -18,7 +19,8 @@ export const test = async (
         uiPort?: number
         watch?: boolean
     } = {},
-    waitForTermination: () => Promise<void> = untilTerminated
+    waitForTermination: () => Promise<void> = untilTerminated,
+    storybook: StorybookConfig = {}
 ): Promise<void> => {
     if (options.uiPort !== undefined && options.ui !== true) throw new Error("--ui-port requires --ui")
 
@@ -30,8 +32,13 @@ export const test = async (
     const nativeCoverage =
         typeof nativeConfig.coverage === "object" && nativeConfig.coverage !== null ? nativeConfig.coverage : {}
     const nativeApi = typeof nativeConfig.api === "object" && nativeConfig.api !== null ? nativeConfig.api : {}
+    const storybookProject =
+        storybook.test === false || !(await hasStorybookConfig(storybook.configDir))
+            ? undefined
+            : await createStorybookTestProject(storybook)
     const vitest = await startVitest("test", filters, {
         ...nativeConfig,
+        ...(storybookProject === undefined ? {} : { projects: [...(nativeConfig.projects ?? []), storybookProject] }),
         passWithNoTests: true,
         run: !persistent,
         watch: persistent,
@@ -74,14 +81,20 @@ const runTest = withConfig<
     void
 >(
     (config) => config.test,
-    ({ filters, environment, coverage, ui, "ui-port": uiPort, watch }, config, _resolvedConfig, explicitArguments) =>
-        test(filters, config, {
-            coverage,
-            environment: explicitArguments.environment === undefined ? undefined : environment,
-            ui,
-            uiPort,
-            watch
-        })
+    ({ filters, environment, coverage, ui, "ui-port": uiPort, watch }, config, resolvedConfig, explicitArguments) =>
+        test(
+            filters,
+            config,
+            {
+                coverage,
+                environment: explicitArguments.environment === undefined ? undefined : environment,
+                ui,
+                uiPort,
+                watch
+            },
+            untilTerminated,
+            resolvedConfig.storybook
+        )
 )
 
 export default defineCommand({

@@ -13,6 +13,7 @@ import {
     withConfig
 } from "../config"
 import { createNodeBuildPlan, type NodeBuildOptions, nodeWatchLifecycle } from "../core/node-build"
+import { runStorybook } from "../core/storybook"
 import { Toolchain } from "../core/toolchain"
 import { untilTerminated } from "../core/until-terminated"
 import { useToolApi } from "../core/use-tool"
@@ -41,7 +42,7 @@ type DevCommandArguments = {
     formats?: Array<"esm" | "cjs">
     host?: string
     minify?: boolean
-    mode?: "web" | "node"
+    mode?: "web" | "node" | "storybook"
     "no-bundle"?: boolean
     "out-dir"?: string
     platform?: "node" | "browser" | "neutral"
@@ -54,6 +55,27 @@ const noBundle = defineOption({
     description: "Emit the reachable Node graph with preserveModules, overriding configuration that enables bundling.",
     arity: 0
 })
+
+const assertStorybookArguments = (explicit: DevCommandArguments): void => {
+    const incompatible = [
+        "bundle",
+        "copy",
+        "declaration",
+        "entry",
+        "formats",
+        "minify",
+        "no-bundle",
+        "out-dir",
+        "platform",
+        "sourcemap",
+        "target"
+    ] as const
+    const option = incompatible.find((name) => {
+        const value = explicit[name]
+        return name === "bundle" || name === "no-bundle" ? value === true : value !== undefined
+    })
+    if (option !== undefined) throw new Error(`--${option} is not available in Storybook mode`)
+}
 
 export const dev = async (
     mode: "web" | "node",
@@ -201,10 +223,15 @@ const commandRun = (toolchain: Toolchain) =>
             resolvedConfig,
             explicit
         ) => {
+            if (explicit.mode === "storybook") {
+                assertStorybookArguments(explicit)
+                return runStorybook("dev", resolvedConfig.storybook, { host, port }, toolchain)
+            }
             if (explicit.bundle && explicit["no-bundle"]) {
                 throw new Error("--bundle and --no-bundle cannot be used together")
             }
             const effectiveBundle = explicit["no-bundle"] ? false : explicit.bundle ? true : buildConfig.bundle
+            const effectiveMode = mode === "storybook" ? undefined : mode
             const effective = resolveEffectiveBuildConfig(
                 resolvedConfig,
                 {
@@ -215,7 +242,7 @@ const commandRun = (toolchain: Toolchain) =>
                     entry,
                     formats,
                     minify,
-                    mode,
+                    mode: effectiveMode,
                     outDir,
                     platform,
                     sourcemap,
@@ -259,7 +286,8 @@ export default defineCommand({
     ],
     run: async (arguments_) => {
         const toolchain = new Toolchain(process.cwd())
-        await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
+        if (arguments_.mode === "storybook") await toolchain.resolve("storybook")
+        else await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
         return commandRun(toolchain)(arguments_)
     }
 })

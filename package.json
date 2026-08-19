@@ -40,6 +40,51 @@
             "types": "./dist/index.d.mts",
             "import": "./dist/index.mjs",
             "default": "./dist/index.mjs"
+        },
+        "./storybook/test/preset": {
+            "types": "./dist/storybook/test/preset.d.mts",
+            "import": "./dist/storybook/test/preset.mjs",
+            "default": "./dist/storybook/test/preset.mjs"
+        },
+        "./storybook/react": {
+            "types": "./dist/storybook/react/index.d.mts",
+            "import": "./dist/storybook/react/index.mjs",
+            "default": "./dist/storybook/react/index.mjs"
+        },
+        "./storybook/react/preset": {
+            "types": "./dist/storybook/react/preset.d.mts",
+            "import": "./dist/storybook/react/preset.mjs",
+            "default": "./dist/storybook/react/preset.mjs"
+        },
+        "./storybook/svelte": {
+            "types": "./dist/storybook/svelte/index.d.mts",
+            "import": "./dist/storybook/svelte/index.mjs",
+            "default": "./dist/storybook/svelte/index.mjs"
+        },
+        "./storybook/svelte/preset": {
+            "types": "./dist/storybook/svelte/preset.d.mts",
+            "import": "./dist/storybook/svelte/preset.mjs",
+            "default": "./dist/storybook/svelte/preset.mjs"
+        },
+        "./storybook/vue": {
+            "types": "./dist/storybook/vue/index.d.mts",
+            "import": "./dist/storybook/vue/index.mjs",
+            "default": "./dist/storybook/vue/index.mjs"
+        },
+        "./storybook/vue/preset": {
+            "types": "./dist/storybook/vue/preset.d.mts",
+            "import": "./dist/storybook/vue/preset.mjs",
+            "default": "./dist/storybook/vue/preset.mjs"
+        },
+        "./storybook/web-components": {
+            "types": "./dist/storybook/web-components/index.d.mts",
+            "import": "./dist/storybook/web-components/index.mjs",
+            "default": "./dist/storybook/web-components/index.mjs"
+        },
+        "./storybook/web-components/preset": {
+            "types": "./dist/storybook/web-components/preset.d.mts",
+            "import": "./dist/storybook/web-components/preset.mjs",
+            "default": "./dist/storybook/web-components/preset.mjs"
         }
     },
     "publishConfig": {
@@ -47,7 +92,7 @@
         "registry": "https://registry.npmjs.org/"
     },
     "scripts": {
-        "build": "obuild",
+        "build": "obuild && node scripts/prepare-storybook-presets.mjs",
         "prepack": "npm run build",
         "pretest": "npm run build",
         "test": "vitest run --passWithNoTests --config vitest.repo.config.ts",
@@ -60,8 +105,16 @@
         "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
     },
     "dependencies": {
+        "@playwright/browser-chromium": "1.58.2",
+        "@storybook/addon-vitest": "10.5.9",
+        "@storybook/react-vite": "10.5.9",
+        "@storybook/svelte-vite": "10.5.9",
+        "@storybook/vue3-vite": "10.5.9",
+        "@storybook/web-components-vite": "10.5.9",
         "@types/node": "^26.1.1",
         "@typescript/native-preview": "7.0.0-dev.20260707.2",
+        "@vitest/browser": "4.1.10",
+        "@vitest/browser-playwright": "4.1.10",
         "@vitest/coverage-v8": "4.1.10",
         "@vitest/ui": "4.1.10",
         "c12": "^4.0.0-beta.5",
@@ -76,9 +129,11 @@
         "oxlint": "1.75.0",
         "pathe": "^2.0.3",
         "pkg-types": "^2.3.1",
+        "playwright": "1.58.2",
         "rolldown": "1.2.0",
         "rolldown-plugin-dts": "0.27.13",
         "semver": "7.8.5",
+        "storybook": "10.5.9",
         "tinyglobby": "^0.2.15",
         "typescript": "6.0.3",
         "vite": "8.1.5",
