@@ -1,6 +1,6 @@
 {
     "name": "webanvil",
-    "version": "0.0.8",
+    "version": "0.0.9",
     "description": "A unified CLI for building, testing, linting, formatting, and type-checking JavaScript and TypeScript projects.",
     "keywords": [
         "build-tool",
