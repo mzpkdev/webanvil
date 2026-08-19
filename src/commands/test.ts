@@ -53,7 +53,11 @@ export const test = async (
         hasVitestConfig && storybookProject !== undefined
             ? [
                   await startVitest("test", filters, vitestOptions),
-                  await startVitest("test", filters, { ...vitestOptions, projects: [storybookProject] })
+                  await startVitest("test", filters, {
+                      ...vitestOptions,
+                      ...(options.ui ? { api: false, ui: false } : {}),
+                      projects: [storybookProject]
+                  })
               ]
             : [
                   await startVitest("test", filters, {

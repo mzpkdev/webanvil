@@ -194,4 +194,16 @@ describe("test", () => {
             expect.objectContaining({ projects: [{ extends: true, test: { name: "storybook" } }] })
         )
     })
+
+    it("does not start a second UI API server for Storybook tests", async () => {
+        const directory = await createDirectory()
+        await mkdir(join(directory, ".storybook"))
+        await writeFile(join(directory, ".storybook", "main.ts"), "export default {}")
+        await writeFile(join(directory, "vitest.config.ts"), "export default {}")
+        process.chdir(directory)
+
+        await test([], {}, { ui: true, uiPort: 51_204 }, async () => undefined, { configDir: ".storybook" })
+
+        expect(startVitest).toHaveBeenNthCalledWith(2, "test", [], expect.objectContaining({ api: false, ui: false }))
+    })
 })
