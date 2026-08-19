@@ -76,7 +76,7 @@ export const build = async (
     rolldownConfig: RolldownConfig = {},
     toolchain = new Toolchain(process.cwd()),
     explicit: ExplicitWebBuild = {}
-): Promise<void> => {
+): Promise<string> => {
     assertSyntaxTarget(options.target)
     if (mode === "web" && options.platform !== undefined) {
         throw new Error("Web builds do not accept platform; platform applies only to Node builds")
@@ -96,7 +96,7 @@ export const build = async (
         )
         await runNodeBuild(plan, rolldown.rolldown)
         logger.success(`Built ${entry} to ${outDir}`)
-        return
+        return outDir
     }
 
     const web = await build.webConfig(entry, outDir, options, plugins, viteConfig, toolchain, explicit)
@@ -115,6 +115,7 @@ export const build = async (
     await writeBuildInfo([...existing.output, ...output, ...copied])
 
     logger.success(`Built ${entry} to ${outDir}`)
+    return target
 }
 
 build.webConfig = async (

@@ -268,6 +268,8 @@ describe.sequential("published package", () => {
             "bin/webanvil",
             "bin/webanvil.cmd",
             "dist/cli.mjs",
+            "dist/e2e.d.mts",
+            "dist/e2e.mjs",
             "dist/index.d.mts",
             "dist/index.mjs",
             ...chunks
@@ -289,6 +291,19 @@ describe.sequential("published package", () => {
             )
         ).toEqual([])
     })
+
+    it("exports the bundled Playwright test API", async () => {
+        const directory = await createConsumer(temporaryDirectory, "e2e-consumer", "NodeNext", tarball, cacheDirectory)
+
+        await expect(
+            run(
+                process.execPath,
+                ["--input-type=module", "--eval", 'await import("webanvil/e2e")'],
+                directory,
+                cacheDirectory
+            )
+        ).resolves.toBeDefined()
+    }, 120_000)
 
     it("does not expose declaration-plugin or optional bundler peer types", async () => {
         const declarations = (

@@ -1,7 +1,7 @@
 import { resolve } from "pathe"
 
 import { defineCommand } from "cmdore"
-import type { UserConfig as ViteConfig } from "vite"
+import type { PreviewServer, UserConfig as ViteConfig } from "vite"
 
 import { hasToolConfig } from "../config-files"
 import { loadConfig, resolveEffectiveBuildConfig } from "../config"
@@ -11,15 +11,14 @@ import { useTool, useToolApi } from "../core/use-tool"
 import { host, open, outDir, port } from "../options"
 import { logger } from "../tools"
 
-export const preview = async (
+export const startPreview = async (
     outDir: string,
     host?: string,
     port?: number,
     useOutDir = false,
-    waitForTermination: () => Promise<void> = untilTerminated,
     openBrowser?: boolean,
     viteConfig: ViteConfig = {}
-): Promise<void> => {
+): Promise<PreviewServer> => {
     logger.start("Starting web preview")
     const vite = await useToolApi<typeof import("vite")>("vite")
     const hasViteConfig = await hasToolConfig("vite")
@@ -36,7 +35,19 @@ export const preview = async (
             ...(openBrowser === undefined ? {} : { open: openBrowser })
         }
     })
-    const server = await vite.preview(config)
+    return vite.preview(config)
+}
+
+export const preview = async (
+    outDir: string,
+    host?: string,
+    port?: number,
+    useOutDir = false,
+    waitForTermination: () => Promise<void> = untilTerminated,
+    openBrowser?: boolean,
+    viteConfig: ViteConfig = {}
+): Promise<void> => {
+    const server = await startPreview(outDir, host, port, useOutDir, openBrowser, viteConfig)
 
     try {
         server.printUrls()

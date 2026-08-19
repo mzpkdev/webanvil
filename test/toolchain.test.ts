@@ -292,6 +292,21 @@ describe("Toolchain", () => {
             })
         })
 
+        it("keeps Playwright on WebAnvil's bundled version", async () => {
+            const directory = await createDirectory()
+            await declareTool(directory, "@playwright/test")
+            await installFakePackage(directory, "@playwright/test", {
+                version: "1.62.1",
+                bin: "playwright"
+            })
+
+            await expect(resolveTool("playwright", directory)).resolves.toMatchObject({
+                packageName: "@playwright/test",
+                source: "webanvil",
+                version: "1.62.1"
+            })
+        })
+
         it.each(Object.keys(supportedTools) as ToolName[])("provides a compatible %s fallback", async (name) => {
             const directory = await createDirectory()
             await writeJson(join(directory, "package.json"), { name: "app" })

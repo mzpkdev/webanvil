@@ -38,6 +38,8 @@ preview [--out-dir <dir>] [--host <host>] [--port <port>] [--open]
                                                      serve a Vite production build
 test [filters...] [--environment <environment>] [--watch] [--coverage] [--ui] [--ui-port <port>]
                                                      run Vitest once, in watch mode, with coverage, or UI
+e2e [filters...] [--host <host>] [--port <port>] [--ui] [--headed] [--debug] [--project <project>]
+                                                     build, preview, and run Playwright browser tests
 lint [paths...] [--fix]                                lint with Oxlint
 format [paths...] [--check]                            format with Oxfmt
 typecheck [paths...]                                   type check a project or explicit files with TypeScript Native Preview
@@ -119,6 +121,8 @@ that run.
   compatible declaration from a workspace containing the project. An
   undeclared or merely hoisted tool does not become the selected project tool;
   WebAnvil uses its exact fallback.
+- Playwright Test and Chromium are always resolved from WebAnvil itself so the
+  `wa e2e` runner and `webanvil/e2e` test API use the same version.
 - Preflight every engine a command can dispatch before loading
   `webanvil.config.*` or evaluating its plugins. A declared but missing,
   misidentified, or incompatible command engine fails first. Select the
@@ -168,6 +172,7 @@ that run.
 - `wa preview` serves the resolved web build output through Vite. `--host`, `--port`, `--out-dir`, and `--open` are run-specific CLI overrides.
 - `wa check` runs formatting, linting, and type checking sequentially and stops on the first failure. It is read-only by default; `--fix` writes formatting changes and applies safe lint fixes. It never runs tests.
 - `wa test` runs once by default; `--watch`, `--coverage`, and `--ui` are CLI-only Vitest modes. `--ui-port` selects a strict loopback port and requires `--ui`. Keep persistent advanced testing configuration in `vitest.config.*`.
+- `wa e2e` builds a web project, serves its production output, and runs bundled Playwright Test against `e2e/` by default. It owns the preview lifecycle only when there is no `playwright.config.*`; a native Playwright config takes full control and should use Playwright's own `webServer` configuration. Playwright Test and Chromium are exact WebAnvil dependencies, but browser system libraries remain environment-owned.
 - Meta-options such as `--config`, `--help`, and `--version`, plus one-off command inputs, remain CLI-only.
 
 ## Test conventions

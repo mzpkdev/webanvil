@@ -7,6 +7,7 @@ export default defineBuildConfig({
             input: [
                 "./src/index.ts",
                 "./src/cli.ts",
+                "./src/e2e.ts",
                 "./src/storybook/test/preset.ts",
                 "./src/storybook/react/index.ts",
                 "./src/storybook/react/preset.ts",

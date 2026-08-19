@@ -79,6 +79,10 @@ remaining gaps are package metadata validation and workspace orchestration.
   configuration plus one-shot, watch, V8 coverage, and UI modes. `wa check`
   runs formatting, linting, and type checking sequentially and stops at the
   first failure; tests remain a separate workflow.
+- `wa e2e` uses bundled Playwright Test and Chromium. Without a native
+  Playwright config it builds a web project, starts a production preview, runs
+  tests from `e2e/`, then closes the preview. A `playwright.config.*` file takes
+  control of server lifecycle and advanced browser configuration.
 
 ## Next package-build gap
 

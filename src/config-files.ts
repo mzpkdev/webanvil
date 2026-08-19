@@ -6,7 +6,7 @@ export const hasFile = async (path: string): Promise<boolean> =>
         .then(() => true)
         .catch(() => false)
 
-export const hasToolConfig = async (name: "vite" | "vitest", cwd = process.cwd()): Promise<boolean> => {
+export const hasToolConfig = async (name: "playwright" | "vite" | "vitest", cwd = process.cwd()): Promise<boolean> => {
     const files: string[] = await readdir(cwd).catch(() => [])
     const extensions = ["js", "mjs", "cjs", "ts", "mts", "cts"]
 

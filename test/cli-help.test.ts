@@ -8,6 +8,14 @@ const execFileAsync = promisify(execFile)
 const binary = fileURLToPath(new URL("../bin/webanvil", import.meta.url))
 
 describe("CLI help", () => {
+    it("describes browser testing", async () => {
+        const { stdout } = await execFileAsync(binary, ["e2e", "--help"])
+
+        expect(stdout).toContain("Run end-to-end browser tests")
+        expect(stdout).toContain("--headed")
+        expect(stdout).toContain("--project")
+    })
+
     it.each(["build", "dev"])(
         "describes Node public roots and the reachable unbundled graph for %s",
         async (command) => {

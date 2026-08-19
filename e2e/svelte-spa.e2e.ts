@@ -31,6 +31,10 @@ describe("svelte-spa", () => {
             await expect(readFile(join(output, "assets", script), "utf8")).resolves.toContain("WebAnvil Svelte SPA")
         }, 60_000)
 
+        it("runs browser tests against a production preview with wa", async () => {
+            await webanvil.e2e(example, "--project", "chromium")
+        }, 60_000)
+
         it("builds Svelte stories with the documented Storybook adapter", async () => {
             const output = await webanvil.build(example, "storybook-static", "--mode", "storybook")
 
