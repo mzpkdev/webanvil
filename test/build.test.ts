@@ -36,7 +36,7 @@ afterEach(async () => {
 })
 
 describe("build", () => {
-    it("preflights engines before evaluating project configuration", async () => {
+    it("preflights explicitly selected engines before evaluating project configuration", async () => {
         const directory = await createDirectory()
         await mkdir(join(directory, "node_modules", "rolldown"), { recursive: true })
         await writeFile(join(directory, "package.json"), JSON.stringify({ devDependencies: { rolldown: "99.0.0" } }))
@@ -53,7 +53,7 @@ describe("build", () => {
 
         await expect(
             execute([buildCommand], {
-                argv: ["build"],
+                argv: ["build", "--mode", "node"],
                 metadata: { name: "wa" },
                 onError: "throw"
             })

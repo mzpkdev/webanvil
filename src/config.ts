@@ -219,8 +219,8 @@ export const withConfig =
             explicitArguments: TArguments
         ) => TResult | Promise<TResult>
     ) =>
-    async (arguments_: TArguments): Promise<TResult> => {
-        const { config } = await loadConfig()
+    async (arguments_: TArguments, resolvedConfig?: UserConfig): Promise<TResult> => {
+        const config = resolvedConfig ?? (await loadConfig()).config
         const selectedConfig = (select(config) ?? {}) as TConfig
 
         return run(

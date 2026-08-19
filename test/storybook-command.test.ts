@@ -43,7 +43,10 @@ describe("configured Storybook mode", () => {
             join(directory, "package.json"),
             JSON.stringify({ devDependencies: { vite: "7.0.0", rolldown: "99.0.0" } })
         )
-        await writeFile(join(directory, "webanvil.config.ts"), 'export default { build: { mode: "storybook" } }')
+        await writeFile(
+            join(directory, "webanvil.config.ts"),
+            'const mode = "storybook"; export default { build: { mode } }'
+        )
         process.chdir(directory)
 
         await execute([command], { argv: [name], metadata: { name: "wa" }, onError: "throw" })
