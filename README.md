@@ -340,16 +340,17 @@ preflights the engines it can dispatch before `webanvil.config.*` is loaded or
 its plugins are evaluated, so a declared command engine that is missing, has
 invalid package identity, or is outside the supported range fails first.
 
-| Tool                       | Supported project/workspace versions | Exact WebAnvil fallback |
-| -------------------------- | ------------------------------------ | ----------------------- |
-| Vite                       | `>=8.1.5 <9`                         | `8.1.5`                 |
-| Vitest                     | `>=4.1.10 <5`                        | `4.1.10`                |
-| Storybook                  | `>=10.5.9 <11`                       | `10.5.9`                |
-| Rolldown                   | `>=1.2.0 <2`                         | `1.2.0`                 |
-| Oxlint                     | `>=1.75.0 <2`                        | `1.75.0`                |
-| Oxfmt                      | `>=0.60.0 <0.61`                     | `0.60.0`                |
-| TypeScript (declarations)  | `>=5 <7`                             | `6.0.3`                 |
-| TypeScript Native (`tsgo`) | `>=7.0.0-dev.20260707.2 <7.0.0`      | `7.0.0-dev.20260707.2`  |
+| Tool                         | Supported project/workspace versions | Exact WebAnvil fallback |
+| ---------------------------- | ------------------------------------ | ----------------------- |
+| Vite                         | `>=8.1.5 <9`                         | `8.1.5`                 |
+| Vitest                       | `>=4.1.10 <5`                        | `4.1.10`                |
+| Playwright Test and Chromium | Bundled only                         | `1.58.2`                |
+| Storybook                    | `>=10.5.9 <11`                       | `10.5.9`                |
+| Rolldown                     | `>=1.2.0 <2`                         | `1.2.0`                 |
+| Oxlint                       | `>=1.75.0 <2`                        | `1.75.0`                |
+| Oxfmt                        | `>=0.60.0 <0.61`                     | `0.60.0`                |
+| TypeScript (declarations)    | `>=5 <7`                             | `6.0.3`                 |
+| TypeScript Native (`tsgo`)   | `>=7.0.0-dev.20260707.2 <7.0.0`      | `7.0.0-dev.20260707.2`  |
 
 When a tool is first used, the CLI reports its package, version, and source, for
 example `Using rolldown 1.2.0 (project)` or
@@ -358,6 +359,9 @@ example `Using rolldown 1.2.0 (project)` or
 The TypeScript compiler is selected only after configuration enables a
 declaration build, but before Rolldown starts that build. It follows the same
 direct project/workspace declaration and exact-fallback rules.
+
+`wa e2e` always uses WebAnvil's bundled Playwright Test and Chromium. This keeps
+the runner and `webanvil/e2e` test API on the same version.
 
 ### Native tool configuration
 
@@ -373,6 +377,10 @@ Precedence is:
    `.oxfmtrc.json`;
 3. the matching native block in `webanvil.config.*`;
 4. WebAnvil defaults.
+
+A `playwright.config.*` is different: it takes full control of `wa e2e`,
+including the server lifecycle and browser configuration. WebAnvil still runs
+its bundled Playwright Test binary.
 
 WebAnvil-owned `build`, `copy`, cross-engine `plugins`, and CLI behavior remain
 orchestration settings. `rolldown.input` and per-format `rolldown.output`
