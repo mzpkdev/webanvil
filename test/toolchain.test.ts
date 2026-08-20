@@ -296,14 +296,14 @@ describe("Toolchain", () => {
             const directory = await createDirectory()
             await declareTool(directory, "@playwright/test")
             await installFakePackage(directory, "@playwright/test", {
-                version: "1.62.1",
+                version: "1.58.2",
                 bin: "playwright"
             })
 
             await expect(resolveTool("playwright", directory)).resolves.toMatchObject({
                 packageName: "@playwright/test",
                 source: "webanvil",
-                version: "1.62.1"
+                version: "1.58.2"
             })
         })
 

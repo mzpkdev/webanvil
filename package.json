@@ -110,8 +110,8 @@
         "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
     },
     "dependencies": {
-        "@playwright/test": "1.58.2",
         "@playwright/browser-chromium": "1.58.2",
+        "@playwright/test": "1.58.2",
         "@storybook/addon-vitest": "10.5.9",
         "@storybook/react-vite": "10.5.9",
         "@storybook/svelte-vite": "10.5.9",

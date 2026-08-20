@@ -25,6 +25,7 @@ Table of contents
     - [A web app](#a-web-app)
     - [Storybook](#storybook)
     - [A Node project](#a-node-project)
+    - [Browser tests](#browser-tests)
 - [Configuration](#configuration)
     - [Tool selection](#tool-selection)
     - [Native tool configuration](#native-tool-configuration)
@@ -48,6 +49,7 @@ wa clean      # remove tracked build output
 wa check      # check formatting, linting, and types
 wa check --fix # format files and apply safe lint fixes before type checking
 wa test       # run tests, watch them, collect coverage, or open the UI
+wa e2e        # build, preview, and run browser tests
 wa lint       # lint files
 wa format      # format files
 wa typecheck   # type-check the project
@@ -64,6 +66,7 @@ What it includes
 | Tracked output cleanup     | `wa clean`                         | WebAnvil                                          |
 | Static checks              | `wa check`                         | Oxfmt, Oxlint, TypeScript Native, or svelte-check |
 | Tests                      | `wa test`                          | Vitest                                            |
+| Browser tests              | `wa e2e`                           | Playwright Test and Chromium                      |
 | Linting                    | `wa lint`                          | Oxlint                                            |
 | Formatting                 | `wa format`                        | Oxfmt                                             |
 | Type checking              | `wa typecheck`                     | TypeScript Native or svelte-check                 |
@@ -95,6 +98,7 @@ Add the scripts you want to `package.json`:
         "clean": "wa clean",
         "check": "wa check",
         "test": "wa test",
+        "e2e": "wa e2e",
         "lint": "wa lint",
         "format": "wa format",
         "typecheck": "wa typecheck"
@@ -114,6 +118,7 @@ npm run build
 npm run clean
 npm run check
 npm run test
+npm run e2e
 npm run lint
 npm run format
 npm run typecheck
@@ -494,6 +499,34 @@ These are run-specific modes; keep persistent Vitest configuration in
 `vitest.config.*`. `--ui-port` selects a strict loopback port and requires
 `--ui`.
 
+### Browser tests
+
+`wa e2e` builds a web project, starts a production preview, and runs Playwright
+Test files in `e2e/`. Import the test API from WebAnvil so the runner and test
+code use the bundled matching version:
+
+```ts
+import { expect, test } from "webanvil/e2e"
+
+test("shows the home page", async ({ page }) => {
+    await page.goto("/")
+    await expect(page.getByRole("heading")).toBeVisible()
+})
+```
+
+The generated configuration provides a `chromium` project, so `wa e2e --project
+chromium` works without a Playwright config. Use `--headed`, `--debug`, or `--ui`
+for an interactive run. WebAnvil ships Playwright Test and Chromium, but the host
+still needs the browser system libraries. On Linux CI, install them with:
+
+```sh
+npx playwright install --with-deps chromium
+```
+
+For advanced configuration, add `playwright.config.*`. WebAnvil then delegates
+directly to Playwright and does not build or start a server. Configure
+Playwright's `webServer` option in that file when the tests need one.
+
 ### Cleaning build output
 
 `wa build` records the actual emitted and copied files in
@@ -543,6 +576,7 @@ Command reference
 | `wa dev [entry]`          | Starts Vite or a Node build watcher. A configured Storybook starts with the Node watcher.                 | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target` |
 | `wa preview`              | Serves a Vite production build or configured static Storybook output.                                     | `--out-dir`, `--host`, `--port`, `--open`                                                                                                                         |
 | `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                                                    | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                                                     |
+| `wa e2e [filters...]`     | Builds, previews, and runs Playwright browser tests. Native Playwright configuration takes control.       | `--host`, `--port`, `--ui`, `--headed`, `--debug`, `--project`                                                                                                    |
 | `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                                                              | `--fix`                                                                                                                                                           |
 | `wa format [paths...]`    | Formats with Oxfmt.                                                                                       | `--check`                                                                                                                                                         |
 | `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                                                       | No options                                                                                                                                                        |

@@ -44,7 +44,12 @@ type ToolDefinition = {
 export const supportedTools = {
     vite: { packageName: "vite", range: ">=8.1.5 <9" },
     vitest: { packageName: "vitest", range: ">=4.1.10 <5" },
-    playwright: { packageName: "@playwright/test", range: ">=1.58.2 <2", bin: "playwright", allowProjectOverride: false },
+    playwright: {
+        packageName: "@playwright/test",
+        range: ">=1.58.2 <2",
+        bin: "playwright",
+        allowProjectOverride: false
+    },
     storybook: { packageName: "storybook", range: ">=10.5.9 <11", bin: "storybook" },
     rolldown: { packageName: "rolldown", range: ">=1.2.0 <2" },
     oxlint: { packageName: "oxlint", range: ">=1.75.0 <2", bin: "oxlint" },
@@ -401,7 +406,10 @@ export class Toolchain {
 
     async #resolve(name: ToolName): Promise<ResolvedTool> {
         const definition: ToolDefinition = supportedTools[name]
-        const declaration = definition.allowProjectOverride === false ? undefined : await findDeclaration(this.cwd, definition.packageName)
+        const declaration =
+            definition.allowProjectOverride === false
+                ? undefined
+                : await findDeclaration(this.cwd, definition.packageName)
         if (declaration !== undefined) {
             return loadResolvedTool(name, definition, declaration.directory, "project")
         }
