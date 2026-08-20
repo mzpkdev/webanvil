@@ -100,6 +100,22 @@ describe("e2e", () => {
         expect(startPreview).toHaveBeenCalledWith("native-dist", undefined, undefined, true, false, undefined)
     })
 
+    it("closes the preview when generated configuration setup fails", async () => {
+        const directory = await createDirectory()
+        await writeFile(
+            join(directory, "webanvil.config.ts"),
+            'export default { build: { mode: "web", entry: "index.html", outDir: "dist" } }\n'
+        )
+        process.chdir(directory)
+        const resolvedUrls = preview.resolvedUrls
+        preview.resolvedUrls = {} as never
+
+        await expect(e2e([])).rejects.toThrow("could not determine the preview URL")
+
+        expect(preview.close).toHaveBeenCalledOnce()
+        preview.resolvedUrls = resolvedUrls
+    })
+
     it("requires a web build when no native Playwright config is present", async () => {
         const directory = await createDirectory()
         process.chdir(directory)

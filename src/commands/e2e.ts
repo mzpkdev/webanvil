@@ -25,7 +25,7 @@ type E2EOptions = {
 }
 
 const localUrl = (server: Awaited<ReturnType<typeof startPreview>>): string => {
-    const url = server.resolvedUrls?.local[0] ?? server.resolvedUrls?.network[0]
+    const url = server.resolvedUrls?.local?.[0] ?? server.resolvedUrls?.network?.[0]
     if (url === undefined) throw new Error("WebAnvil could not determine the preview URL for browser tests")
     return url
 }
@@ -98,18 +98,22 @@ export const e2e = async (filters: string[], options: E2EOptions = {}): Promise<
     )
 
     const server = await startPreview(output, options.host, options.port, true, false, config.vite)
-    const baseURL = localUrl(server)
-    const directory = await mkdtemp(join(tmpdir(), "webanvil-playwright-"))
-    const configPath = join(directory, "playwright.config.mjs")
+    let directory: string | undefined
 
     try {
+        const baseURL = localUrl(server)
+        directory = await mkdtemp(join(tmpdir(), "webanvil-playwright-"))
+        const configPath = join(directory, "playwright.config.mjs")
         await writeFile(
             configPath,
             `export default ${defaultConfig(resolve(process.cwd(), "e2e"), baseURL, join(directory, "test-results"))}`
         )
         await runPlaywright(filters, options, configPath, baseURL, true)
     } finally {
-        await Promise.all([server.close(), rm(directory, { force: true, recursive: true })])
+        await Promise.all([
+            server.close(),
+            ...(directory === undefined ? [] : [rm(directory, { force: true, recursive: true })])
+        ])
     }
 
     logger.success("End-to-end tests passed")
