@@ -170,7 +170,7 @@ Use one resolution policy for all user-selectable toolchain packages:
 - When the project provides an incompatible version, fail with an actionable
   compatibility error instead of silently falling back.
 - Report the selected package version and source, for example
-  `vitest 4.1.10 (project)` or `rolldown 1.2.0 (webanvil)`.
+  `vitest 4.1.11 (webanvil)` or `rolldown 1.2.0 (webanvil)`.
 - Substitute only the same engine. A project dependency on `typescript` does
   not replace `@typescript/native-preview`.
 

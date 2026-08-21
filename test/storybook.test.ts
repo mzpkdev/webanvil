@@ -22,7 +22,7 @@ afterEach(async () => {
 
 describe("Storybook configuration", () => {
     it("rejects a Vitest version that does not match the bundled browser provider", async () => {
-        await expect(createStorybookTestProject({}, "4.1.11")).rejects.toThrow("Storybook tests require Vitest 4.1.10")
+        await expect(createStorybookTestProject({}, "4.1.10")).rejects.toThrow("Storybook tests require Vitest 4.1.11")
     })
 
     it("adds the configured framework without requiring it in the project main file", async () => {

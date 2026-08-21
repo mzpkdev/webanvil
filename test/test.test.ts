@@ -159,7 +159,7 @@ describe("test", () => {
 
         expect(createStorybookTestProject).toHaveBeenCalledWith(
             { framework: "svelte", configDir: ".storybook.webanvil" },
-            "4.1.10"
+            "4.1.11"
         )
         expect(startVitest).toHaveBeenCalledWith(
             "test",

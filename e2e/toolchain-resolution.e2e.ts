@@ -39,7 +39,7 @@ const projects = [
             oxlint: "1.75.0",
             rolldown: "1.2.0",
             vite: "8.1.5",
-            vitest: "4.1.10"
+            vitest: "4.1.11"
         }
     },
     {
@@ -52,7 +52,7 @@ const projects = [
             oxlint: "1.75.0",
             rolldown: "1.2.0",
             vite: "8.1.5",
-            vitest: "4.1.10"
+            vitest: "4.1.11"
         }
     }
 ] satisfies FixtureProject[]
@@ -138,7 +138,7 @@ describe.sequential(`toolchain resolution with ${packageManager}`, () => {
     it("constructs package-manager-native installs and commands without resolving their binaries", () => {
         const expectations: Record<PackageManager, { install: string[]; webanvil: string[] }> = {
             npm: {
-                install: ["install", "--ignore-scripts"],
+                install: ["install", "--ignore-scripts", "--no-package-lock"],
                 webanvil: ["exec", "--", "wa", "build"]
             },
             pnpm: {

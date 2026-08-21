@@ -281,7 +281,7 @@ describe("Toolchain", () => {
 
     context("with a bundled test runner", () => {
         it.each([
-            ["vitest", "vitest", undefined, "4.1.10"],
+            ["vitest", "vitest", undefined, "4.1.11"],
             ["playwright", "@playwright/test", "playwright", "1.58.2"]
         ] as const)("keeps %s on WebAnvil's bundled version", async (name, packageName, bin, version) => {
             const directory = await createDirectory()

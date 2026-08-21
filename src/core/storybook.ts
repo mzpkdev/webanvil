@@ -12,7 +12,7 @@ import { Toolchain } from "./toolchain"
 import { useToolExecutable } from "./use-tool"
 
 type StorybookAction = "build" | "dev"
-const storybookVitestVersion = "4.1.10"
+const storybookVitestVersion = "4.1.11"
 
 type StorybookRunOptions = {
     configDir?: string

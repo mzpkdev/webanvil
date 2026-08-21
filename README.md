@@ -344,7 +344,7 @@ invalid package identity, or is outside the supported range fails first.
 | Tool                         | Supported project/workspace versions | Exact WebAnvil fallback |
 | ---------------------------- | ------------------------------------ | ----------------------- |
 | Vite                         | `>=8.1.5 <9`                         | `8.1.5`                 |
-| Vitest                       | Bundled only                         | `4.1.10`                |
+| Vitest                       | Bundled only                         | `4.1.11`                |
 | Playwright Test and Chromium | Bundled only                         | `1.58.2`                |
 | Storybook                    | `>=10.5.9 <11`                       | `10.5.9`                |
 | Rolldown                     | `>=1.2.0 <2`                         | `1.2.0`                 |

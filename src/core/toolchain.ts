@@ -43,7 +43,7 @@ type ToolDefinition = {
 
 export const supportedTools = {
     vite: { packageName: "vite", range: ">=8.1.5 <9" },
-    vitest: { packageName: "vitest", range: ">=4.1.10 <5", allowProjectOverride: false },
+    vitest: { packageName: "vitest", range: ">=4.1.11 <5", allowProjectOverride: false },
     playwright: {
         packageName: "@playwright/test",
         range: ">=1.58.2 <2",
