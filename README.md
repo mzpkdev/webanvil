@@ -350,7 +350,7 @@ invalid package identity, or is outside the supported range fails first.
 | Rolldown                     | `>=1.2.0 <2`                         | `1.2.0`                 |
 | Oxlint                       | `>=1.75.0 <2`                        | `1.75.0`                |
 | Oxfmt                        | `>=0.60.0 <0.61`                     | `0.60.0`                |
-| TypeScript (declarations)    | `>=5 <7`                             | `6.0.3`                 |
+| TypeScript (declarations)    | `>=5 <7.1.0`                         | `6.0.3`                 |
 | TypeScript Native (`tsgo`)   | `>=7.0.0-dev.20260707.2 <7.0.0`      | `7.0.0-dev.20260707.2`  |
 
 When a tool is first used, the CLI reports its package, version, and source, for

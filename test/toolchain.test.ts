@@ -330,7 +330,7 @@ describe("Toolchain", () => {
             ["rolldown", "1.2.0", "1.1.9", "2.0.0"],
             ["oxlint", "1.75.0", "1.74.9", "2.0.0"],
             ["oxfmt", "0.60.0", "0.59.9", "0.61.0"],
-            ["typescript", "5.0.0", "4.9.9", "7.0.0"],
+            ["typescript", "5.0.0", "4.9.9", "7.1.0"],
             ["typescript-native", "7.0.0-dev.20260707.2", "7.0.0-dev.20260707.1", "7.0.0"]
         ]
 
@@ -368,6 +368,14 @@ describe("Toolchain", () => {
             })
 
             await expect(resolveTool(name, directory)).rejects.toThrow("is incompatible with WebAnvil")
+        })
+
+        it("accepts TypeScript 7.0.x for declarations", async () => {
+            const directory = await createDirectory()
+            await declareTool(directory, "typescript")
+            await installFakePackage(directory, "typescript", { version: "7.0.2" })
+
+            await expect(resolveTool("typescript", directory)).resolves.toMatchObject({ version: "7.0.2" })
         })
     })
 

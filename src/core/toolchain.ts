@@ -54,7 +54,7 @@ export const supportedTools = {
     rolldown: { packageName: "rolldown", range: ">=1.2.0 <2" },
     oxlint: { packageName: "oxlint", range: ">=1.75.0 <2", bin: "oxlint" },
     oxfmt: { packageName: "oxfmt", range: ">=0.60.0 <0.61", bin: "oxfmt" },
-    typescript: { packageName: "typescript", range: ">=5 <7" },
+    typescript: { packageName: "typescript", range: ">=5 <7.1.0" },
     "typescript-native": {
         packageName: "@typescript/native-preview",
         range: ">=7.0.0-dev.20260707.2 <7.0.0",
