@@ -138,7 +138,7 @@ describe.sequential(`toolchain resolution with ${packageManager}`, () => {
     it("constructs package-manager-native installs and commands without resolving their binaries", () => {
         const expectations: Record<PackageManager, { install: string[]; webanvil: string[] }> = {
             npm: {
-                install: ["install", "--ignore-scripts", "--no-package-lock"],
+                install: ["install", "--ignore-scripts"],
                 webanvil: ["exec", "--", "wa", "build"]
             },
             pnpm: {

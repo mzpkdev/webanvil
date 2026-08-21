@@ -70,7 +70,7 @@ export const packageManagerCommand = (
     if (name === "npm") {
         return {
             command: commandName(name),
-            args: locked ? ["ci", "--ignore-scripts"] : ["install", "--ignore-scripts", "--no-package-lock"]
+            args: locked ? ["ci", "--ignore-scripts"] : ["install", "--ignore-scripts"]
         }
     }
     if (name === "pnpm") {
