@@ -83,10 +83,10 @@ npm install --save-dev webanvil
 ```
 
 Your package manager remains responsible for dependencies, the lockfile, and
-the installed tree. WebAnvil never installs or updates tools. When a supported
-tool is declared directly by the active project, or by a workspace that contains
-it, WebAnvil uses that installed version. Otherwise it uses the exact version
-shipped with WebAnvil.
+the installed tree. WebAnvil never installs or updates tools. Except for the
+bundled Vitest and Playwright test toolchains, WebAnvil uses a compatible tool
+declared directly by the active project or containing workspace before its
+exact fallback.
 
 Add the scripts you want to `package.json`:
 
@@ -203,8 +203,8 @@ package build still owns `--out-dir`.
 Set `storybook.test: false` to exclude Storybook stories, including `play`
 functions, from `wa test`. Chromium is downloaded by
 `@playwright/browser-chromium` when your package manager runs install scripts.
-If the project declares Vitest, Storybook tests require version `4.1.10` to
-match the bundled browser provider.
+Storybook tests use WebAnvil's bundled Vitest and browser provider as one
+version-matched toolchain.
 
 ### A Node project
 
@@ -335,7 +335,8 @@ over the matching WebAnvil block.
 ### Tool selection
 
 WebAnvil selects compatible project and workspace declarations before its own
-fallbacks. A transitive or merely hoisted package is not selected. Each command
+fallbacks, except for its bundled Vitest and Playwright test toolchains. A
+transitive or merely hoisted package is not selected. Each command
 preflights the engines it can dispatch before `webanvil.config.*` is loaded or
 its plugins are evaluated, so a declared command engine that is missing, has
 invalid package identity, or is outside the supported range fails first.
@@ -343,7 +344,7 @@ invalid package identity, or is outside the supported range fails first.
 | Tool                         | Supported project/workspace versions | Exact WebAnvil fallback |
 | ---------------------------- | ------------------------------------ | ----------------------- |
 | Vite                         | `>=8.1.5 <9`                         | `8.1.5`                 |
-| Vitest                       | `>=4.1.10 <5`                        | `4.1.10`                |
+| Vitest                       | Bundled only                         | `4.1.10`                |
 | Playwright Test and Chromium | Bundled only                         | `1.58.2`                |
 | Storybook                    | `>=10.5.9 <11`                       | `10.5.9`                |
 | Rolldown                     | `>=1.2.0 <2`                         | `1.2.0`                 |
@@ -360,8 +361,9 @@ The TypeScript compiler is selected only after configuration enables a
 declaration build, but before Rolldown starts that build. It follows the same
 direct project/workspace declaration and exact-fallback rules.
 
-`wa e2e` always uses WebAnvil's bundled Playwright Test and Chromium. This keeps
-the runner and `webanvil/e2e` test API on the same version.
+`wa test` and `wa e2e` always use WebAnvil's bundled Vitest and Playwright
+toolchains. This keeps each runner on the same version as its `webanvil/test` or
+`webanvil/e2e` API.
 
 ### Native tool configuration
 
@@ -507,6 +509,24 @@ These are run-specific modes; keep persistent Vitest configuration in
 `vitest.config.*`. `--ui-port` selects a strict loopback port and requires
 `--ui`.
 
+Import the bundled test API from WebAnvil so test registration and execution
+always use the same Vitest instance:
+
+```ts
+import { context, describe, expect, it } from "webanvil/test"
+
+describe("calculator", () => {
+    context("with two values", () => {
+        it("adds them", () => {
+            expect(1 + 1).toBe(2)
+        })
+    })
+})
+```
+
+Native Vitest configuration can import `defineConfig` from
+`webanvil/test/config`.
+
 ### Browser tests
 
 `wa e2e` builds a web project, starts a production preview, and runs Playwright
@@ -514,11 +534,15 @@ Test files in `e2e/`. Import the test API from WebAnvil so the runner and test
 code use the bundled matching version:
 
 ```ts
-import { expect, test } from "webanvil/e2e"
+import { context, describe, expect, it } from "webanvil/e2e"
 
-test("shows the home page", async ({ page }) => {
-    await page.goto("/")
-    await expect(page.getByRole("heading")).toBeVisible()
+describe("home page", () => {
+    context("when a visitor opens it", () => {
+        it("shows its heading", async ({ page }) => {
+            await page.goto("/")
+            await expect(page.getByRole("heading")).toBeVisible()
+        })
+    })
 })
 ```
 

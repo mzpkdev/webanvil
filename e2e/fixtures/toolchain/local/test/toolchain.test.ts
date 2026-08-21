@@ -1,5 +1,5 @@
-import { expect, it } from "vitest"
+import { expect, it } from "webanvil/test"
 
-it("shares the project Vitest instance with its setup adapter", () => {
+it("shares WebAnvil's Vitest instance with its setup adapter", () => {
     ;(expect("project-vitest-shared-instance") as unknown as { toUseProjectVitest(): void }).toUseProjectVitest()
 })

@@ -1,6 +1,6 @@
 {
     "name": "webanvil",
-    "version": "0.0.13",
+    "version": "0.0.14",
     "description": "A unified CLI for building, testing, linting, formatting, and type-checking JavaScript and TypeScript projects.",
     "keywords": [
         "build-tool",
@@ -45,6 +45,16 @@
             "types": "./dist/e2e.d.mts",
             "import": "./dist/e2e.mjs",
             "default": "./dist/e2e.mjs"
+        },
+        "./test": {
+            "types": "./dist/test.d.mts",
+            "import": "./dist/test.mjs",
+            "default": "./dist/test.mjs"
+        },
+        "./test/config": {
+            "types": "./dist/test/config.d.mts",
+            "import": "./dist/test/config.mjs",
+            "default": "./dist/test/config.mjs"
         },
         "./storybook/test/preset": {
             "types": "./dist/storybook/test/preset.d.mts",

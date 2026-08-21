@@ -195,11 +195,11 @@ describe.sequential(`toolchain resolution with ${packageManager}`, () => {
     )
 
     it.each(projects)(
-        "uses $name Vitest and runs the fixture suite",
+        "uses bundled Vitest for $name and runs the fixture suite",
         async (project) => {
             const result = await webanvil(project.directory, "test")
 
-            expectSelection(result, "vitest", project.versions.vitest, project.source)
+            expectSelection(result, "vitest", project.versions.vitest, "webanvil")
             expect(result.output).toContain("Tests passed")
             expect(result.output).toMatch(/1 passed/)
         },

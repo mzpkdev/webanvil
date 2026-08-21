@@ -10,13 +10,18 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 const execFileAsync = promisify(execFile)
 const projectDirectory = fileURLToPath(new URL("..", import.meta.url))
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm"
-const commandEnvironment = (cacheDirectory: string): NodeJS.ProcessEnv => ({
-    ...process.env,
-    npm_config_audit: "false",
-    npm_config_cache: cacheDirectory,
-    npm_config_fund: "false",
-    npm_config_update_notifier: "false"
-})
+const commandEnvironment = (cacheDirectory: string): NodeJS.ProcessEnv => {
+    const environment = { ...process.env }
+    delete environment.NODE_OPTIONS
+
+    return {
+        ...environment,
+        npm_config_audit: "false",
+        npm_config_cache: cacheDirectory,
+        npm_config_fund: "false",
+        npm_config_update_notifier: "false"
+    }
+}
 
 type PackFile = {
     path: string
@@ -272,6 +277,10 @@ describe.sequential("published package", () => {
             "dist/e2e.mjs",
             "dist/index.d.mts",
             "dist/index.mjs",
+            "dist/test/config.d.mts",
+            "dist/test/config.mjs",
+            "dist/test.d.mts",
+            "dist/test.mjs",
             ...chunks
         ]
 
@@ -292,13 +301,23 @@ describe.sequential("published package", () => {
         ).toEqual([])
     })
 
-    it("exports the bundled Playwright test API", async () => {
+    it("exports matching BDD APIs for bundled Vitest and Playwright", async () => {
         const directory = await createConsumer(temporaryDirectory, "e2e-consumer", "NodeNext", tarball, cacheDirectory)
 
         await expect(
             run(
                 process.execPath,
-                ["--input-type=module", "--eval", 'await import("webanvil/e2e")'],
+                [
+                    "--input-type=module",
+                    "--eval",
+                    `const unit = await import("webanvil/test")
+const e2e = await import("webanvil/e2e")
+const config = await import("webanvil/test/config")
+if (unit.context !== unit.describe) throw new Error("Vitest context alias does not match describe")
+if (e2e.context !== e2e.describe) throw new Error("Playwright context alias does not match describe")
+if (e2e.it !== e2e.test) throw new Error("Playwright it alias does not match test")
+if (typeof config.defineConfig !== "function") throw new Error("Vitest config API is missing")`
+                ],
                 directory,
                 cacheDirectory
             )

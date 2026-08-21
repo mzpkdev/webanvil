@@ -116,13 +116,14 @@ that run.
 
 ## Tool selection
 
-- Vite, Vitest, Rolldown, Oxlint, Oxfmt, TypeScript, and TypeScript Native are
+- Vite, Rolldown, Oxlint, Oxfmt, TypeScript, and TypeScript Native are
   selected from a compatible direct project declaration first, then a
   compatible declaration from a workspace containing the project. An
   undeclared or merely hoisted tool does not become the selected project tool;
   WebAnvil uses its exact fallback.
-- Playwright Test and Chromium are always resolved from WebAnvil itself so the
-  `wa e2e` runner and `webanvil/e2e` test API use the same version.
+- Vitest, Playwright Test, and Chromium are always resolved from WebAnvil itself
+  so `wa test` and `wa e2e` use the same versions as the `webanvil/test` and
+  `webanvil/e2e` APIs.
 - Preflight every engine a command can dispatch before loading
   `webanvil.config.*` or evaluating its plugins. A declared but missing,
   misidentified, or incompatible command engine fails first. Select the
@@ -203,6 +204,8 @@ Future config resolution will merge project config, workspace config, and built-
 filters and `--environment` option mirror Vitest; CLI modes and environment
 override config. `--watch`, `--coverage`, and `--ui` expose run-specific Vitest
 modes. When present, use `vitest.config.*` instead of the WebAnvil native block.
+Import test APIs from `webanvil/test` and native config helpers from
+`webanvil/test/config` so they share WebAnvil's bundled Vitest instance.
 
 ## Project structure
 

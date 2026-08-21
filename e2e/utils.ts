@@ -41,7 +41,7 @@ const commandEnvironment = (
     environment: NodeJS.ProcessEnv = process.env,
     nodeEnvironment?: "development" | "production"
 ): NodeJS.ProcessEnv => {
-    const { TEST: _vitestTestEnvironment, ...callerEnvironment } = environment
+    const { NODE_OPTIONS: _vitestNodeOptions, TEST: _vitestTestEnvironment, ...callerEnvironment } = environment
     if (callerEnvironment.NODE_ENV === "test") delete callerEnvironment.NODE_ENV
     return {
         ...callerEnvironment,

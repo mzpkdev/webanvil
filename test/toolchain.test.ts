@@ -279,6 +279,26 @@ describe("Toolchain", () => {
         })
     })
 
+    context("with a bundled test runner", () => {
+        it.each([
+            ["vitest", "vitest", undefined, "4.1.10"],
+            ["playwright", "@playwright/test", "playwright", "1.58.2"]
+        ] as const)("keeps %s on WebAnvil's bundled version", async (name, packageName, bin, version) => {
+            const directory = await createDirectory()
+            await declareTool(directory, packageName)
+            await installFakePackage(directory, packageName, {
+                version,
+                ...(bin === undefined ? {} : { bin })
+            })
+
+            await expect(resolveTool(name, directory)).resolves.toMatchObject({
+                packageName,
+                source: "webanvil",
+                version
+            })
+        })
+    })
+
     context("without a declaration", () => {
         it("rejects an undeclared hoist and uses WebAnvil's pinned fallback", async () => {
             const directory = await createDirectory()
@@ -289,21 +309,6 @@ describe("Toolchain", () => {
                 packageName: "vite",
                 version: "8.1.5",
                 source: "webanvil"
-            })
-        })
-
-        it("keeps Playwright on WebAnvil's bundled version", async () => {
-            const directory = await createDirectory()
-            await declareTool(directory, "@playwright/test")
-            await installFakePackage(directory, "@playwright/test", {
-                version: "1.58.2",
-                bin: "playwright"
-            })
-
-            await expect(resolveTool("playwright", directory)).resolves.toMatchObject({
-                packageName: "@playwright/test",
-                source: "webanvil",
-                version: "1.58.2"
             })
         })
 
@@ -322,7 +327,6 @@ describe("Toolchain", () => {
     context("with version boundaries", () => {
         const boundaries: [ToolName, string, string, string][] = [
             ["vite", "8.1.5", "8.1.4", "9.0.0"],
-            ["vitest", "4.1.10", "4.1.9", "5.0.0"],
             ["rolldown", "1.2.0", "1.1.9", "2.0.0"],
             ["oxlint", "1.75.0", "1.74.9", "2.0.0"],
             ["oxfmt", "0.60.0", "0.59.9", "0.61.0"],

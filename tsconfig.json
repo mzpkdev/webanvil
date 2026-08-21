@@ -5,7 +5,10 @@
         "moduleResolution": "bundler",
         "paths": {
             "@/*": ["./e2e/fixtures/toolchain/local/src/*"],
-            "webanvil": ["./src/index.ts"]
+            "webanvil": ["./src/index.ts"],
+            "webanvil/e2e": ["./src/e2e.ts"],
+            "webanvil/test": ["./src/test.ts"],
+            "webanvil/test/config": ["./src/test/config.ts"]
         },
         "resolveJsonModule": true,
         "verbatimModuleSyntax": true,
