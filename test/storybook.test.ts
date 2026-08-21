@@ -2,7 +2,7 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { createStorybookTestProject, prepareStorybookConfig } from "../src/core/storybook"
 
@@ -21,6 +21,24 @@ afterEach(async () => {
 })
 
 describe("Storybook configuration", () => {
+    it("does not load Storybook test integrations with an ordinary command", async () => {
+        const loadAddon = vi.fn(() => ({ storybookTest: vi.fn() }))
+        const loadBrowserProvider = vi.fn(() => ({ playwright: vi.fn() }))
+        vi.resetModules()
+        vi.doMock("@storybook/addon-vitest/vitest-plugin", loadAddon)
+        vi.doMock("@vitest/browser-playwright", loadBrowserProvider)
+        try {
+            await import("../src/core/storybook")
+
+            expect(loadAddon).not.toHaveBeenCalled()
+            expect(loadBrowserProvider).not.toHaveBeenCalled()
+        } finally {
+            vi.doUnmock("@storybook/addon-vitest/vitest-plugin")
+            vi.doUnmock("@vitest/browser-playwright")
+            vi.resetModules()
+        }
+    })
+
     it("rejects a Vitest version that does not match the bundled browser provider", async () => {
         await expect(createStorybookTestProject({}, "4.1.10")).rejects.toThrow("Storybook tests require Vitest 4.1.11")
     })

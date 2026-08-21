@@ -13,7 +13,7 @@ const projectPlugin = createUnplugin(() => ({
 export default defineConfig({
     build: {
         bundle: true,
-        declaration: { generator: "tsc" },
+        declaration: true,
         entry: "src/node.ts",
         formats: ["esm"],
         mode: "node",

@@ -28,6 +28,15 @@ const createDirectory = async (): Promise<string> => {
     return directory
 }
 
+const installDeclaredTypeScript = async (directory: string, version: string): Promise<void> => {
+    await writeFile(join(directory, "package.json"), JSON.stringify({ devDependencies: { typescript: version } }))
+    await mkdir(join(directory, "node_modules", "typescript"), { recursive: true })
+    await writeFile(
+        join(directory, "node_modules", "typescript", "package.json"),
+        JSON.stringify({ name: "typescript", version, main: "./index.js" })
+    )
+}
+
 afterEach(async () => {
     process.chdir(initialDirectory)
     if (initialNodeEnvironment === undefined) delete process.env.NODE_ENV
@@ -1019,6 +1028,52 @@ describe("build", () => {
             })
 
             await expect(readFile(join(directory, "dist", "index.d.ts"), "utf8")).resolves.toContain("greeting")
+        })
+
+        it("uses Oxc declarations by default for a TypeScript 7 project without a tsconfig", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await installDeclaredTypeScript(directory, "7.0.2")
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                "export const greeting = (name: string): string => `Hello ${name}`\n"
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { bundle: true, declaration: true })
+
+            await expect(readFile(join(directory, "dist", "index.d.ts"), "utf8")).resolves.toContain("greeting")
+        })
+
+        it("uses tsgo declarations by default for a TypeScript 7 project with a tsconfig", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await installDeclaredTypeScript(directory, "7.0.2")
+            await writeFile(
+                join(directory, "src", "index.ts"),
+                "export const greeting = (name: string): string => `Hello ${name}`\n"
+            )
+            await writeFile(
+                join(directory, "tsconfig.json"),
+                JSON.stringify({ compilerOptions: { module: "esnext", moduleResolution: "bundler", target: "es2022" } })
+            )
+            process.chdir(directory)
+
+            await build("node", "src/index.ts", "dist", { bundle: true, declaration: true })
+
+            await expect(readFile(join(directory, "dist", "index.d.ts"), "utf8")).resolves.toContain("greeting")
+        })
+
+        it("rejects the tsc declaration generator for TypeScript 7", async () => {
+            const directory = await createDirectory()
+            await mkdir(join(directory, "src"), { recursive: true })
+            await installDeclaredTypeScript(directory, "7.0.2")
+            await writeFile(join(directory, "src", "index.ts"), "export const greeting = true\n")
+            process.chdir(directory)
+
+            await expect(
+                build("node", "src/index.ts", "dist", { bundle: true, declaration: { generator: "tsc" } })
+            ).rejects.toThrow('build.declaration.generator "tsc" does not support TypeScript 7.0.2')
         })
 
         it("records declaration maps emitted through native declaration configuration", async () => {

@@ -3,8 +3,6 @@ import { dirname, relative, resolve } from "pathe"
 import { fileURLToPath } from "node:url"
 
 import { execa } from "execa"
-import { playwright } from "@vitest/browser-playwright"
-import { storybookTest } from "@storybook/addon-vitest/vitest-plugin"
 import type { TestProjectInlineConfiguration } from "vitest/config"
 
 import type { StorybookConfig } from "../config"
@@ -138,6 +136,10 @@ export const createStorybookTestProject = async (
     }
     const previousVitest = process.env.VITEST
     process.env.VITEST = "true"
+    const [{ playwright }, { storybookTest }] = await Promise.all([
+        import("@vitest/browser-playwright"),
+        import("@storybook/addon-vitest/vitest-plugin")
+    ])
     let plugins: Awaited<ReturnType<typeof storybookTest>>
     try {
         plugins = await storybookTest({ configDir: config.configDir })

@@ -423,9 +423,11 @@ names and source maps.
 
 ### Node declarations
 
-`build.declaration: true` uses `rolldown-plugin-dts` with its TypeScript
-generator. Pass a native declaration options object to select the `"oxc"` or
-`"tsgo"` generator and other plugin settings:
+`build.declaration: true` uses `rolldown-plugin-dts`. TypeScript 5 and 6 use
+the full `tsc` generator. TypeScript 7 uses `tsgo` when the project has a
+`tsconfig.json`; otherwise it uses Oxc's isolated declaration generator. Pass a
+native declaration options object to choose a generator and other plugin
+settings explicitly:
 
 ```ts
 import { defineConfig } from "webanvil"
@@ -440,11 +442,12 @@ export default defineConfig({
 })
 ```
 
-The TypeScript generator selects a compatible project/workspace TypeScript
+The `tsc` generator selects a compatible project/workspace TypeScript
 declaration when present, otherwise WebAnvil's exact TypeScript fallback.
 Project-local `ts-patch` and TypeScript emit transforms are honored when they
-are directly declared and resolve to that same compiler. Emit transforms
-require the `tsc` generator; Oxc and `tsgo` are explicit alternatives.
+are directly declared and resolve to that same compiler. They require `tsc`,
+which supports TypeScript 5 and 6; use `tsgo` with a `tsconfig.json` or Oxc for
+TypeScript 7 declarations.
 
 `rolldown-plugin-dts` owns declaration paths and imports. ESM-only builds attach
 one declaration graph; CommonJS-only and dual-format builds use one

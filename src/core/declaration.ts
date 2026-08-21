@@ -50,7 +50,6 @@ export type DeclarationConfig = {
 }
 
 export const declarationDefaults = {
-    generator: "tsc",
     incremental: false,
     newContext: true,
     parallel: false
@@ -227,6 +226,40 @@ const withoutImplicitIncremental = (config: DeclarationConfig): DeclarationConfi
     }
 }
 
+const usesTypeScriptSeven = (typescript: ResolvedTool): boolean => typescript.version.startsWith("7.")
+
+const selectDeclarationGenerator = async (
+    configured: DeclarationConfig,
+    plugins: CompilerPlugin[],
+    tsconfigPath: string | undefined,
+    toolchain: Toolchain
+): Promise<NonNullable<DeclarationConfig["generator"]>> => {
+    const requested = configured.generator
+    if (plugins.length > 0 && requested !== undefined && requested !== "tsc") {
+        throw new Error(
+            `TypeScript declaration transforms from ${tsconfigPath ?? "compilerOptions"} require build.declaration.generator "tsc"; ` +
+                `${requested} cannot apply TypeScript emit transforms`
+        )
+    }
+    if (requested === "oxc" || requested === "tsgo") return requested
+
+    const typescript = await toolchain.resolve("typescript")
+    if (!usesTypeScriptSeven(typescript)) return "tsc"
+    if (requested === "tsc") {
+        throw new Error(
+            `build.declaration.generator "tsc" does not support TypeScript ${typescript.version}; ` +
+                'use "tsgo" with a tsconfig.json or "oxc" instead'
+        )
+    }
+    if (plugins.length > 0) {
+        throw new Error(
+            `TypeScript declaration transforms from ${tsconfigPath ?? "compilerOptions"} require the "tsc" generator, ` +
+                `which does not support TypeScript ${typescript.version}; use TypeScript 6 or below, or remove the transforms`
+        )
+    }
+    return tsconfigPath === undefined ? "oxc" : "tsgo"
+}
+
 export const createDeclarationPlugins = async (
     declaration: true | DeclarationConfig,
     cwd: string,
@@ -235,14 +268,8 @@ export const createDeclarationPlugins = async (
 ): Promise<RolldownPlugin[]> =>
     serializeSetup(async () => {
         const configured = withoutImplicitIncremental(declaration === true ? {} : declaration)
-        const generator = configured.generator ?? declarationDefaults.generator
         const { plugins, tsconfigPath } = compilerPlugins(cwd, configured)
-        if (plugins.length > 0 && generator !== "tsc") {
-            throw new Error(
-                `TypeScript declaration transforms from ${tsconfigPath ?? "compilerOptions"} require build.declaration.generator "tsc"; ` +
-                    `${generator} cannot apply TypeScript emit transforms`
-            )
-        }
+        const generator = await selectDeclarationGenerator(configured, plugins, tsconfigPath, toolchain)
 
         const options: DtsOptions = {
             ...declarationDefaults,
