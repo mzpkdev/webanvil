@@ -1,6 +1,6 @@
 {
     "name": "webanvil",
-    "version": "0.0.17",
+    "version": "0.0.18",
     "description": "A unified CLI for building, testing, linting, formatting, and type-checking JavaScript and TypeScript projects.",
     "keywords": [
         "build-tool",
@@ -160,6 +160,9 @@
     "devDependencies": {
         "obuild": "^0.4.38",
         "unplugin": "^3.3.0"
+    },
+    "peerDependencies": {
+        "storybook": "10.5.9"
     },
     "engines": {
         "node": "^22.18.0 || >=24.11.0"
