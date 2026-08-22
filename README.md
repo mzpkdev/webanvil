@@ -167,8 +167,10 @@ export default defineConfig({
 ### Storybook
 
 WebAnvil includes Storybook, the supported Vite framework adapters, Vitest's
-browser support, and Chromium. Add only a Storybook configuration and your
-project's normal framework dependencies.
+browser support, and Chromium. It exposes that exact Storybook release as a
+peer dependency, so package-manager-installed addons resolve against the same
+runtime. Add a Storybook configuration, addons, and your project's normal
+framework dependencies.
 
 For a Node design-system project, configure Storybook beside the package build:
 
