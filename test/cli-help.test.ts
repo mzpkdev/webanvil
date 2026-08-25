@@ -35,4 +35,10 @@ describe("CLI help", () => {
             expect(stdout).not.toContain("source module tree")
         }
     )
+
+    it("describes Storybook browser opening", async () => {
+        const { stdout } = await execFileAsync(binary, ["dev", "--help"])
+
+        expect(stdout).toContain("Open Storybook or the preview in the browser.")
+    })
 })

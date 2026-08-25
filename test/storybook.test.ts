@@ -65,4 +65,33 @@ describe("Storybook configuration", () => {
 
         await expect(access(generatedDirectory)).rejects.toThrow()
     })
+
+    it("keeps Storybook closed unless opening it is requested", async () => {
+        const execa = vi.fn(() => Object.assign(Promise.resolve({ exitCode: 0 }), { kill: vi.fn() }))
+        const useToolExecutable = vi.fn().mockResolvedValue("storybook")
+        vi.resetModules()
+        vi.doMock("execa", () => ({ execa }))
+        vi.doMock("../src/core/use-tool", () => ({ useToolExecutable }))
+        try {
+            const { startStorybook } = await import("../src/core/storybook")
+
+            await (
+                await startStorybook("dev")
+            ).completed
+            expect(execa).toHaveBeenCalledWith("storybook", ["dev", "--no-open"], {
+                reject: false,
+                stdio: "inherit"
+            })
+
+            execa.mockClear()
+            await (
+                await startStorybook("dev", {}, { open: true })
+            ).completed
+            expect(execa).toHaveBeenCalledWith("storybook", ["dev"], { reject: false, stdio: "inherit" })
+        } finally {
+            vi.doUnmock("execa")
+            vi.doUnmock("../src/core/use-tool")
+            vi.resetModules()
+        }
+    })
 })

@@ -15,6 +15,7 @@ const storybookVitestVersion = "4.1.11"
 type StorybookRunOptions = {
     configDir?: string
     host?: string
+    open?: boolean
     outDir?: string
     port?: number
 }
@@ -100,6 +101,7 @@ export const startStorybook = async (
         ...(configDir === undefined ? [] : ["--config-dir", configDir]),
         ...(action === "dev" && options.host !== undefined ? ["--host", options.host] : []),
         ...(action === "dev" && options.port !== undefined ? ["--port", String(options.port)] : []),
+        ...(action === "dev" && options.open !== true ? ["--no-open"] : []),
         ...(action === "build" ? ["--output-dir", outDir] : [])
     ]
     const child = execa(executable, arguments_, { reject: false, stdio: "inherit" })

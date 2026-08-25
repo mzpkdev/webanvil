@@ -27,6 +27,7 @@ import {
     host,
     minify,
     mode,
+    open,
     outDir,
     platform,
     port,
@@ -48,6 +49,7 @@ type DevCommandArguments = {
     mode?: "web" | "node"
     "no-bundle"?: boolean
     "out-dir"?: string
+    open?: boolean
     platform?: "node" | "browser" | "neutral"
     port?: number
     sourcemap?: boolean
@@ -193,6 +195,7 @@ export const devWithStorybook = async (
     outDir: string,
     storybook: StorybookConfig,
     host: string | undefined,
+    open: boolean | undefined,
     port: number | undefined,
     plugins: WebAnvilPlugin[] = [],
     options: NodeBuildOptions = {},
@@ -217,6 +220,7 @@ export const devWithStorybook = async (
             storybook,
             {
                 host: host ?? storybook.host,
+                open,
                 port: port ?? storybook.port
             },
             toolchain
@@ -246,6 +250,7 @@ const commandRun = (toolchain: Toolchain) =>
                 entry,
                 "out-dir": outDir,
                 host,
+                open,
                 platform,
                 port,
                 sourcemap,
@@ -286,6 +291,9 @@ const commandRun = (toolchain: Toolchain) =>
             if (explicit.storybook && configuredStorybook === undefined) {
                 throw new Error("--storybook requires a storybook configuration")
             }
+            if (explicit.open && configuredStorybook === undefined) {
+                throw new Error("--open is only available with --storybook")
+            }
 
             if (configuredStorybook !== undefined) {
                 return devWithStorybook(
@@ -293,6 +301,7 @@ const commandRun = (toolchain: Toolchain) =>
                     effective.outDir!,
                     configuredStorybook,
                     explicit.host === undefined ? undefined : host,
+                    explicit.open === undefined ? undefined : open,
                     explicit.port === undefined ? undefined : port,
                     resolvedConfig.plugins ?? [],
                     effective,
@@ -323,6 +332,7 @@ export default defineCommand({
         mode,
         outDir,
         host,
+        open,
         port,
         bundle,
         noBundle,

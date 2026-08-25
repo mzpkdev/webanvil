@@ -124,7 +124,7 @@ describe("Storybook command integration", () => {
         expect(startStorybook).toHaveBeenCalledWith(
             "dev",
             { framework: "svelte" },
-            { host: undefined, port: undefined },
+            { host: undefined, open: false, port: undefined },
             expect.anything()
         )
         expect(stop).toHaveBeenCalled()
@@ -137,6 +137,12 @@ describe("Storybook command integration", () => {
         await expect(
             execute([command], { argv: [name, "--storybook"], metadata: { name: "wa" }, onError: "throw" })
         ).rejects.toThrow("--storybook requires a storybook configuration")
+    })
+
+    it("rejects --open without --storybook", async () => {
+        await expect(
+            execute([devCommand], { argv: ["dev", "--open"], metadata: { name: "wa" }, onError: "throw" })
+        ).rejects.toThrow("--open is only available with --storybook")
     })
 
     it.each([
