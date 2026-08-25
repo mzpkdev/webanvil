@@ -199,11 +199,11 @@ export default {
 `wa dev --storybook` starts the package watcher, waits for its first successful
 build, then starts Storybook. `wa build --storybook` creates the package output
 and static Storybook. Without `--storybook`, these commands only run the package
-workflow, even when `storybook` is configured. `wa preview` serves the static
-Storybook output. `wa clean` removes both sets of tracked files. `--host` and
-`--port` on `wa dev --storybook` configure Storybook. Storybook does not open
-a browser by default; pass `--open` to open it. The package build still owns
-`--out-dir`.
+workflow, even when `storybook` is configured. Run `wa build --storybook`
+before `wa preview` to serve the static Storybook output. `wa clean` removes
+both sets of tracked files. `--host` and `--port` on `wa dev --storybook`
+configure Storybook. Storybook does not open a browser by default; pass `--open`
+to open it. The package build still owns `--out-dir`.
 
 Set `storybook.test: false` to exclude Storybook stories, including `play`
 functions, from `wa test`. Chromium is downloaded by

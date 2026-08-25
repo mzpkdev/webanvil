@@ -118,16 +118,51 @@ describe("Storybook command integration", () => {
                 stopStorybook()
                 await storybook
             }
+
+            expect(startStorybook).toHaveBeenCalledWith(
+                "dev",
+                { framework: "svelte" },
+                { host: undefined, open: false, port: undefined },
+                expect.anything()
+            )
+            expect(stop).toHaveBeenCalled()
+
+            let stopOpenedStorybook = (): void => {}
+            const openedCompleted = new Promise<void>((resolve) => {
+                stopOpenedStorybook = resolve
+            })
+            const openedStop = vi.fn()
+            vi.mocked(startStorybook).mockResolvedValue({ completed: openedCompleted, stop: openedStop })
+            let stopOpenedDevelopment = (): void => {}
+            const openedTerminated = new Promise<void>((resolve) => {
+                stopOpenedDevelopment = resolve
+            })
+            vi.mocked(untilTerminated).mockImplementation(() => openedTerminated)
+            const opened = execute([devCommand], {
+                argv: ["dev", "--storybook", "--open"],
+                metadata: { name: "wa" },
+                onError: "throw"
+            })
+            try {
+                await waitFor(
+                    "Storybook development with browser opening",
+                    () => vi.mocked(startStorybook).mock.calls.length === 2
+                )
+            } finally {
+                stopOpenedDevelopment()
+                stopOpenedStorybook()
+                await opened
+            }
+            expect(startStorybook).toHaveBeenLastCalledWith(
+                "dev",
+                { framework: "svelte" },
+                { host: undefined, open: true, port: undefined },
+                expect.anything()
+            )
+            expect(openedStop).toHaveBeenCalled()
         } finally {
             nodeWatch.mockRestore()
         }
-        expect(startStorybook).toHaveBeenCalledWith(
-            "dev",
-            { framework: "svelte" },
-            { host: undefined, open: false, port: undefined },
-            expect.anything()
-        )
-        expect(stop).toHaveBeenCalled()
     })
 
     it.each([
