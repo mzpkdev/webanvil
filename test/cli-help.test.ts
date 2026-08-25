@@ -30,6 +30,7 @@ describe("CLI help", () => {
             expect(stdout).toContain(
                 "Emit the reachable Node graph with preserveModules, overriding configuration that enables bundling."
             )
+            expect(stdout).toContain("Also run the configured Storybook companion workflow.")
             expect(stdout).not.toContain("source-tree anchor")
             expect(stdout).not.toContain("source module tree")
         }

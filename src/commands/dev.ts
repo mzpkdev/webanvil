@@ -31,6 +31,7 @@ import {
     platform,
     port,
     sourcemap,
+    storybook,
     target
 } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
@@ -50,6 +51,7 @@ type DevCommandArguments = {
     platform?: "node" | "browser" | "neutral"
     port?: number
     sourcemap?: boolean
+    storybook?: boolean
     target?: string | string[]
 }
 const noBundle = defineOption({
@@ -280,11 +282,16 @@ const commandRun = (toolchain: Toolchain) =>
             if (executableMode !== "web" && executableMode !== "node")
                 throw new Error("Expected a web or Node build mode")
 
-            if (resolvedConfig.storybook !== undefined) {
+            const configuredStorybook = explicit.storybook ? resolvedConfig.storybook : undefined
+            if (explicit.storybook && configuredStorybook === undefined) {
+                throw new Error("--storybook requires a storybook configuration")
+            }
+
+            if (configuredStorybook !== undefined) {
                 return devWithStorybook(
                     effective.entry!,
                     effective.outDir!,
-                    resolvedConfig.storybook,
+                    configuredStorybook,
                     explicit.host === undefined ? undefined : host,
                     explicit.port === undefined ? undefined : port,
                     resolvedConfig.plugins ?? [],
@@ -325,14 +332,22 @@ export default defineCommand({
         minify,
         formats,
         platform,
-        target
+        target,
+        storybook
     ],
     run: async (arguments_) => {
-        const configured = arguments_.mode === undefined ? (await loadConfig()).config : undefined
         const toolchain = new Toolchain(process.cwd())
+        if (arguments_.storybook) {
+            await Promise.all([
+                toolchain.resolve("vite"),
+                toolchain.resolve("rolldown"),
+                toolchain.resolve("storybook")
+            ])
+            return commandRun(toolchain)(arguments_, (await loadConfig()).config)
+        }
+        const configured = arguments_.mode === undefined ? (await loadConfig()).config : undefined
         await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
         const config = configured ?? (await loadConfig()).config
-        if (config.storybook !== undefined) await toolchain.resolve("storybook")
         return commandRun(toolchain)(arguments_, config)
     }
 })
