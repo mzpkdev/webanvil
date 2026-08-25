@@ -58,18 +58,18 @@ wa typecheck   # type-check the project
 What it includes
 ----------------
 
-| Project job                | WebAnvil command                   | Tool                                              |
-| -------------------------- | ---------------------------------- | ------------------------------------------------- |
-| Web builds and development | `wa build`, `wa dev`, `wa preview` | Vite                                              |
-| Node builds and watch mode | `wa build`, `wa dev`               | Rolldown                                          |
-| Design-system Storybook    | `wa build`, `wa dev`, `wa preview` | Storybook                                         |
-| Tracked output cleanup     | `wa clean`                         | WebAnvil                                          |
-| Static checks              | `wa check`                         | Oxfmt, Oxlint, TypeScript Native, or svelte-check |
-| Tests                      | `wa test`                          | Vitest                                            |
-| Browser tests              | `wa e2e`                           | Playwright Test and Chromium                      |
-| Linting                    | `wa lint`                          | Oxlint                                            |
-| Formatting                 | `wa format`                        | Oxfmt                                             |
-| Type checking              | `wa typecheck`                     | TypeScript Native or svelte-check                 |
+| Project job                | WebAnvil command                                           | Tool                                              |
+| -------------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
+| Web builds and development | `wa build`, `wa dev`, `wa preview`                         | Vite                                              |
+| Node builds and watch mode | `wa build`, `wa dev`                                       | Rolldown                                          |
+| Design-system Storybook    | `wa build --storybook`, `wa dev --storybook`, `wa preview` | Storybook                                         |
+| Tracked output cleanup     | `wa clean`                                                 | WebAnvil                                          |
+| Static checks              | `wa check`                                                 | Oxfmt, Oxlint, TypeScript Native, or svelte-check |
+| Tests                      | `wa test`                                                  | Vitest                                            |
+| Browser tests              | `wa e2e`                                                   | Playwright Test and Chromium                      |
+| Linting                    | `wa lint`                                                  | Oxlint                                            |
+| Formatting                 | `wa format`                                                | Oxfmt                                             |
+| Type checking              | `wa typecheck`                                             | TypeScript Native or svelte-check                 |
 
 Getting started
 ---------------
@@ -196,11 +196,14 @@ export default {
 } satisfies StorybookConfig
 ```
 
-`wa dev` starts the package watcher, waits for its first successful build, then
-starts Storybook. `wa build` creates the package output and static Storybook.
-`wa preview` serves the static Storybook output. `wa clean` removes both sets of
-tracked files. `--host` and `--port` on `wa dev` configure Storybook. The
-package build still owns `--out-dir`.
+`wa dev --storybook` starts the package watcher, waits for its first successful
+build, then starts Storybook. `wa build --storybook` creates the package output
+and static Storybook. Without `--storybook`, these commands only run the package
+workflow, even when `storybook` is configured. Run `wa build --storybook`
+before `wa preview` to serve the static Storybook output. `wa clean` removes
+both sets of tracked files. `--host` and `--port` on `wa dev --storybook`
+configure Storybook. Storybook does not open a browser by default; pass `--open`
+to open it. The package build still owns `--out-dir`.
 
 Set `storybook.test: false` to exclude Storybook stories, including `play`
 functions, from `wa test`. Chromium is downloaded by
@@ -605,17 +608,17 @@ That lets a project standardize on `wa` now and move settings into `webanvil.con
 Command reference
 -----------------
 
-| Command                   | Description                                                                                               | Options                                                                                                                                                           |
-| ------------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. A configured Storybook builds with a Node project. | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`                     |
-| `wa clean`                | Removes files emitted by prior WebAnvil builds.                                                           | No options                                                                                                                                                        |
-| `wa check`                | Checks formatting, linting, and types, stopping on the first failure.                                     | `--fix`                                                                                                                                                           |
-| `wa dev [entry]`          | Starts Vite or a Node build watcher. A configured Storybook starts with the Node watcher.                 | `--mode`, `--out-dir`, `--host`, `--port`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target` |
-| `wa preview`              | Serves a Vite production build or configured static Storybook output.                                     | `--out-dir`, `--host`, `--port`, `--open`                                                                                                                         |
-| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                                                    | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                                                     |
-| `wa e2e [filters...]`     | Builds, previews, and runs Playwright browser tests. Native Playwright configuration takes control.       | `--host`, `--port`, `--ui`, `--headed`, `--debug`, `--project`                                                                                                    |
-| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                                                              | `--fix`                                                                                                                                                           |
-| `wa format [paths...]`    | Formats with Oxfmt.                                                                                       | `--check`                                                                                                                                                         |
-| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                                                       | No options                                                                                                                                                        |
+| Command                   | Description                                                                                                | Options                                                                                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `wa build [entry]`        | Builds with Vite in web mode or Rolldown in Node mode. `--storybook` also builds the configured Storybook. | `--mode`, `--out-dir`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`, `--storybook`                               |
+| `wa clean`                | Removes files emitted by prior WebAnvil builds.                                                            | No options                                                                                                                                                                                 |
+| `wa check`                | Checks formatting, linting, and types, stopping on the first failure.                                      | `--fix`                                                                                                                                                                                    |
+| `wa dev [entry]`          | Starts Vite or a Node build watcher. `--storybook` also starts the configured Storybook.                   | `--mode`, `--out-dir`, `--host`, `--port`, `--open`, `--copy`, `--bundle`, `--no-bundle`, `--formats`, `--declaration`, `--sourcemap`, `--minify`, `--platform`, `--target`, `--storybook` |
+| `wa preview`              | Serves a Vite production build or configured static Storybook output.                                      | `--out-dir`, `--host`, `--port`, `--open`                                                                                                                                                  |
+| `wa test [filters...]`    | Runs Vitest once, in watch mode, with coverage, or UI.                                                     | `--environment`, `--watch`, `--coverage`, `--ui`, `--ui-port`                                                                                                                              |
+| `wa e2e [filters...]`     | Builds, previews, and runs Playwright browser tests. Native Playwright configuration takes control.        | `--host`, `--port`, `--ui`, `--headed`, `--debug`, `--project`                                                                                                                             |
+| `wa lint [paths...]`      | Runs Oxlint and treats warnings as failures.                                                               | `--fix`                                                                                                                                                                                    |
+| `wa format [paths...]`    | Formats with Oxfmt.                                                                                        | `--check`                                                                                                                                                                                  |
+| `wa typecheck [paths...]` | Type-checks with TypeScript Native.                                                                        | No options                                                                                                                                                                                 |
 
 Run `wa <command> --help` for the complete reference for a command.

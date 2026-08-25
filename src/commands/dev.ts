@@ -27,10 +27,12 @@ import {
     host,
     minify,
     mode,
+    open,
     outDir,
     platform,
     port,
     sourcemap,
+    storybook,
     target
 } from "../options"
 import { resolveRolldownPlugins, resolveVitePlugins, type WebAnvilPlugin } from "../plugins"
@@ -47,9 +49,11 @@ type DevCommandArguments = {
     mode?: "web" | "node"
     "no-bundle"?: boolean
     "out-dir"?: string
+    open?: boolean
     platform?: "node" | "browser" | "neutral"
     port?: number
     sourcemap?: boolean
+    storybook?: boolean
     target?: string | string[]
 }
 const noBundle = defineOption({
@@ -191,6 +195,7 @@ export const devWithStorybook = async (
     outDir: string,
     storybook: StorybookConfig,
     host: string | undefined,
+    open: boolean | undefined,
     port: number | undefined,
     plugins: WebAnvilPlugin[] = [],
     options: NodeBuildOptions = {},
@@ -215,6 +220,7 @@ export const devWithStorybook = async (
             storybook,
             {
                 host: host ?? storybook.host,
+                open,
                 port: port ?? storybook.port
             },
             toolchain
@@ -244,6 +250,7 @@ const commandRun = (toolchain: Toolchain) =>
                 entry,
                 "out-dir": outDir,
                 host,
+                open,
                 platform,
                 port,
                 sourcemap,
@@ -280,12 +287,21 @@ const commandRun = (toolchain: Toolchain) =>
             if (executableMode !== "web" && executableMode !== "node")
                 throw new Error("Expected a web or Node build mode")
 
-            if (resolvedConfig.storybook !== undefined) {
+            const configuredStorybook = explicit.storybook ? resolvedConfig.storybook : undefined
+            if (explicit.storybook && configuredStorybook === undefined) {
+                throw new Error("--storybook requires a storybook configuration")
+            }
+            if (explicit.open && configuredStorybook === undefined) {
+                throw new Error("--open is only available with --storybook")
+            }
+
+            if (configuredStorybook !== undefined) {
                 return devWithStorybook(
                     effective.entry!,
                     effective.outDir!,
-                    resolvedConfig.storybook,
+                    configuredStorybook,
                     explicit.host === undefined ? undefined : host,
+                    explicit.open === undefined ? undefined : open,
                     explicit.port === undefined ? undefined : port,
                     resolvedConfig.plugins ?? [],
                     effective,
@@ -316,6 +332,7 @@ export default defineCommand({
         mode,
         outDir,
         host,
+        open,
         port,
         bundle,
         noBundle,
@@ -325,14 +342,22 @@ export default defineCommand({
         minify,
         formats,
         platform,
-        target
+        target,
+        storybook
     ],
     run: async (arguments_) => {
-        const configured = arguments_.mode === undefined ? (await loadConfig()).config : undefined
         const toolchain = new Toolchain(process.cwd())
+        if (arguments_.storybook) {
+            await Promise.all([
+                toolchain.resolve("vite"),
+                toolchain.resolve("rolldown"),
+                toolchain.resolve("storybook")
+            ])
+            return commandRun(toolchain)(arguments_, (await loadConfig()).config)
+        }
+        const configured = arguments_.mode === undefined ? (await loadConfig()).config : undefined
         await Promise.all([toolchain.resolve("vite"), toolchain.resolve("rolldown")])
         const config = configured ?? (await loadConfig()).config
-        if (config.storybook !== undefined) await toolchain.resolve("storybook")
         return commandRun(toolchain)(arguments_, config)
     }
 })
