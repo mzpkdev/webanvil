@@ -66,7 +66,7 @@ What it includes
 | Tracked output cleanup     | `wa clean`                                                 | WebAnvil                                          |
 | Static checks              | `wa check`                                                 | Oxfmt, Oxlint, TypeScript Native, or svelte-check |
 | Tests                      | `wa test`                                                  | Vitest                                            |
-| Browser tests              | `wa e2e`                                                   | Playwright Test and Chromium                      |
+| Browser tests              | `wa e2e`                                                   | Playwright Test; project-installed browser        |
 | Linting                    | `wa lint`                                                  | Oxlint                                            |
 | Formatting                 | `wa format`                                                | Oxfmt                                             |
 | Type checking              | `wa typecheck`                                             | TypeScript Native or svelte-check                 |
@@ -166,8 +166,8 @@ export default defineConfig({
 
 ### Storybook
 
-WebAnvil includes Storybook, the supported Vite framework adapters, Vitest's
-browser support, and Chromium. It exposes that exact Storybook release as a
+WebAnvil includes Storybook, the supported Vite framework adapters, and Vitest's
+browser support. It exposes that exact Storybook release as a
 peer dependency, so package-manager-installed addons resolve against the same
 runtime. Add a Storybook configuration, addons, and your project's normal
 framework dependencies.
@@ -206,8 +206,10 @@ configure Storybook. Storybook does not open a browser by default; pass `--open`
 to open it. The package build still owns `--out-dir`.
 
 Set `storybook.test: false` to exclude Storybook stories, including `play`
-functions, from `wa test`. Chromium is downloaded by
-`@playwright/browser-chromium` when your package manager runs install scripts.
+functions, from `wa test`. Projects running Storybook browser tests must install
+Chromium for WebAnvil's Playwright 1.58.2 toolchain. Run
+`npx playwright@1.58.2 install chromium`, or add
+`@playwright/browser-chromium@1.58.2` to the project and allow its install script.
 Storybook tests use WebAnvil's bundled Vitest and browser provider as one
 version-matched toolchain.
 
@@ -346,17 +348,17 @@ preflights the engines it can dispatch before `webanvil.config.*` is loaded or
 its plugins are evaluated, so a declared command engine that is missing, has
 invalid package identity, or is outside the supported range fails first.
 
-| Tool                         | Supported project/workspace versions | Exact WebAnvil fallback |
-| ---------------------------- | ------------------------------------ | ----------------------- |
-| Vite                         | `>=8.1.5 <9`                         | `8.1.5`                 |
-| Vitest                       | Bundled only                         | `4.1.11`                |
-| Playwright Test and Chromium | Bundled only                         | `1.58.2`                |
-| Storybook                    | `>=10.5.9 <11`                       | `10.5.9`                |
-| Rolldown                     | `>=1.2.0 <2`                         | `1.2.0`                 |
-| Oxlint                       | `>=1.75.0 <2`                        | `1.75.0`                |
-| Oxfmt                        | `>=0.60.0 <0.61`                     | `0.60.0`                |
-| TypeScript (declarations)    | `>=5 <7.1.0`                         | `6.0.3`                 |
-| TypeScript Native (`tsgo`)   | `>=7.0.0-dev.20260707.2 <7.0.0`      | `7.0.0-dev.20260707.2`  |
+| Tool                       | Supported project/workspace versions | Exact WebAnvil fallback |
+| -------------------------- | ------------------------------------ | ----------------------- |
+| Vite                       | `>=8.1.5 <9`                         | `8.1.5`                 |
+| Vitest                     | Bundled only                         | `4.1.11`                |
+| Playwright Test            | Bundled only                         | `1.58.2`                |
+| Storybook                  | `>=10.5.9 <11`                       | `10.5.9`                |
+| Rolldown                   | `>=1.2.0 <2`                         | `1.2.0`                 |
+| Oxlint                     | `>=1.75.0 <2`                        | `1.75.0`                |
+| Oxfmt                      | `>=0.60.0 <0.61`                     | `0.60.0`                |
+| TypeScript (declarations)  | `>=5 <7.1.0`                         | `6.0.3`                 |
+| TypeScript Native (`tsgo`) | `>=7.0.0-dev.20260707.2 <7.0.0`      | `7.0.0-dev.20260707.2`  |
 
 When a tool is first used, the CLI reports its package, version, and source, for
 example `Using rolldown 1.2.0 (project)` or
@@ -555,12 +557,14 @@ describe("home page", () => {
 ```
 
 The generated configuration provides a `chromium` project, so `wa e2e --project
-chromium` works without a Playwright config. Use `--headed`, `--debug`, or `--ui`
-for an interactive run. WebAnvil ships Playwright Test and Chromium, but the host
-still needs the browser system libraries. On Linux CI, install them with:
+chromium` works without a Playwright config after the project installs Chromium.
+Use `--headed`, `--debug`, or `--ui` for an interactive run. WebAnvil ships
+Playwright Test, while the project supplies the browser binary and its system
+libraries. Install the matching browser locally with
+`npx playwright@1.58.2 install chromium`. On Linux CI, install both with:
 
 ```sh
-npx playwright install --with-deps chromium
+npx playwright@1.58.2 install --with-deps chromium
 ```
 
 For advanced configuration, add `playwright.config.*`. WebAnvil then delegates
