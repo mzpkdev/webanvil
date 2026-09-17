@@ -1,6 +1,6 @@
 {
     "name": "webanvil",
-    "version": "0.0.19",
+    "version": "0.0.20",
     "description": "A unified CLI for building, testing, linting, formatting, and type-checking JavaScript and TypeScript projects.",
     "keywords": [
         "build-tool",
@@ -120,7 +120,6 @@
         "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
     },
     "dependencies": {
-        "@playwright/browser-chromium": "1.58.2",
         "@playwright/test": "1.58.2",
         "@storybook/addon-vitest": "10.5.9",
         "@storybook/react-vite": "10.5.9",
