@@ -207,9 +207,9 @@ to open it. The package build still owns `--out-dir`.
 
 Set `storybook.test: false` to exclude Storybook stories, including `play`
 functions, from `wa test`. Projects running Storybook browser tests must install
-Chromium for WebAnvil's Playwright 1.58.2 toolchain. Run
-`npx playwright@1.58.2 install chromium`, or add
-`@playwright/browser-chromium@1.58.2` to the project and allow its install script.
+Chromium for WebAnvil's Playwright 1.60.0 toolchain. Run
+`npx playwright@1.60.0 install chromium`, or add
+`@playwright/browser-chromium@1.60.0` to the project and allow its install script.
 Storybook tests use WebAnvil's bundled Vitest and browser provider as one
 version-matched toolchain.
 
@@ -352,7 +352,7 @@ invalid package identity, or is outside the supported range fails first.
 | -------------------------- | ------------------------------------ | ----------------------- |
 | Vite                       | `>=8.1.5 <9`                         | `8.1.5`                 |
 | Vitest                     | Bundled only                         | `4.1.11`                |
-| Playwright Test            | Bundled only                         | `1.58.2`                |
+| Playwright Test            | Bundled only                         | `1.60.0`                |
 | Storybook                  | `>=10.5.9 <11`                       | `10.5.9`                |
 | Rolldown                   | `>=1.2.0 <2`                         | `1.2.0`                 |
 | Oxlint                     | `>=1.75.0 <2`                        | `1.75.0`                |
@@ -561,10 +561,10 @@ chromium` works without a Playwright config after the project installs Chromium.
 Use `--headed`, `--debug`, or `--ui` for an interactive run. WebAnvil ships
 Playwright Test, while the project supplies the browser binary and its system
 libraries. Install the matching browser locally with
-`npx playwright@1.58.2 install chromium`. On Linux CI, install both with:
+`npx playwright@1.60.0 install chromium`. On Linux CI, install both with:
 
 ```sh
-npx playwright@1.58.2 install --with-deps chromium
+npx playwright@1.60.0 install --with-deps chromium
 ```
 
 For advanced configuration, add `playwright.config.*`. WebAnvil then delegates

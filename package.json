@@ -120,7 +120,7 @@
         "check": "npm run typecheck && npm run lint && npm run format:check && npm test"
     },
     "dependencies": {
-        "@playwright/test": "1.58.2",
+        "@playwright/test": "1.60.0",
         "@storybook/addon-vitest": "10.5.9",
         "@storybook/react-vite": "10.5.9",
         "@storybook/svelte-vite": "10.5.9",
@@ -144,7 +144,7 @@
         "oxlint": "1.75.0",
         "pathe": "^2.0.3",
         "pkg-types": "^2.3.1",
-        "playwright": "1.58.2",
+        "playwright": "1.60.0",
         "rolldown": "1.2.0",
         "rolldown-plugin-dts": "0.27.13",
         "semver": "7.8.5",
