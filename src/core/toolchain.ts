@@ -46,7 +46,7 @@ export const supportedTools = {
     vitest: { packageName: "vitest", range: ">=4.1.11 <5", allowProjectOverride: false },
     playwright: {
         packageName: "@playwright/test",
-        range: ">=1.58.2 <2",
+        range: ">=1.60.0 <2",
         bin: "playwright",
         allowProjectOverride: false
     },

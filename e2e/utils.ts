@@ -70,7 +70,11 @@ export const packageManagerCommand = (
     if (name === "npm") {
         return {
             command: commandName(name),
-            args: locked ? ["ci", "--ignore-scripts"] : ["install", "--ignore-scripts", "--no-package-lock"]
+            // These temporary projects exercise direct tool selection, not automatic peer installation.
+            // npm 10's Arborist crashes while resolving peers when Vitest is declared beside WebAnvil.
+            args: locked
+                ? ["ci", "--ignore-scripts"]
+                : ["install", "--ignore-scripts", "--no-package-lock", "--legacy-peer-deps"]
         }
     }
     if (name === "pnpm") {
